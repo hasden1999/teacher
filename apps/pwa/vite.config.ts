@@ -41,4 +41,7 @@ export default defineConfig({
       'Cross-Origin-Embedder-Policy': 'require-corp',
     },
   },
+  build: {
+    chunkSizeWarningLimit: 2000,
+  },
 });
