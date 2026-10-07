@@ -1,5 +1,6 @@
 node_modules/
 apps/pwa/dist/
+/dist/
 coverage/
 .turbo/
 .pnpm-store/

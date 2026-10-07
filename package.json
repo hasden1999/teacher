@@ -12,7 +12,7 @@
   "scripts": {
     "dev": "pnpm --filter @techeeer/pwa run dev",
     "preview": "pnpm --filter @techeeer/pwa run preview",
-    "build": "pnpm -r run build",
+    "build": "pnpm -r run build && node -e \"const fs=require('fs'); fs.cpSync('apps/pwa/dist', 'dist', {recursive: true});\"",
     "test": "pnpm -r run test",
     "test:coverage": "pnpm -r run test:coverage",
     "test:e2e": "pnpm --filter @techeeer/tests-e2e test",
