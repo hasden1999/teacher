@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "preview": "vite preview",
+    "prebuild": "pnpm --filter @techeeer/core run build && pnpm --filter @techeeer/content run build",
     "build": "tsc && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
