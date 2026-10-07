@@ -1,0 +1,179 @@
+@import 'katex/dist/katex.min.css';
+
+@import 'tailwindcss';
+@config '../tailwind.config.js';
+
+/* =========================================================================
+   1. LOCAL OFFLINE FONTS (ZERO CDN DEPENDENCY)
+   ========================================================================= */
+
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Tajawal-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/Tajawal-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Tajawal-Bold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Amiri-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Amiri';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Amiri-Bold.woff2') format('woff2');
+}
+
+/* =========================================================================
+   2. BASE STYLES & RTL DEFAULTS
+   ========================================================================= */
+
+@layer base {
+  :root {
+    --color-brand-primary: #0F766E;
+    --color-brand-hover: #115E59;
+    --color-bg-ivory: #FDFBF7;
+    --color-card-border: #F2ECE1;
+  }
+
+  html {
+    direction: rtl;
+    font-family: 'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #FDFBF7;
+    color: #1E293B;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    overscroll-behavior-y: none;
+  }
+
+  /* Focus ring accessibility */
+  *:focus-visible {
+    outline: 2px solid #0F766E;
+    outline-offset: 2px;
+  }
+
+  /* Safe Area Variables */
+  .safe-area-bottom {
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+  }
+}
+
+/* =========================================================================
+   3. REUSABLE RTL & TOUCH COMPONENTS
+   ========================================================================= */
+
+@layer components {
+  /* Ergonomic touch button (min 48px) */
+  .btn-touch {
+    @apply min-h-[48px] min-w-[48px] px-4 py-2.5 rounded-xl inline-flex items-center justify-center font-medium touch-manipulation select-none transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Brand primary button */
+  .btn-primary {
+    @apply min-h-[48px] min-w-[48px] px-4 py-2.5 rounded-xl inline-flex items-center justify-center font-medium touch-manipulation select-none transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-brand-700 hover:bg-brand-800 text-white shadow-sm active:bg-brand-900;
+  }
+
+  /* Secondary surface button */
+  .btn-secondary {
+    @apply min-h-[48px] min-w-[48px] px-4 py-2.5 rounded-xl inline-flex items-center justify-center font-medium touch-manipulation select-none transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-white hover:bg-ivory-100 text-slate-700 border border-ivory-200 shadow-sm active:bg-ivory-200;
+  }
+
+  /* Quick action keypad button (min 48px) */
+  .keypad-btn {
+    @apply min-h-[52px] min-w-[52px] rounded-xl flex items-center justify-center text-lg font-bold transition-all duration-100 active:scale-95 touch-manipulation;
+  }
+
+  /* Ivory card container */
+  .card-ivory {
+    @apply bg-white rounded-2xl border border-ivory-200 p-4 shadow-subtle;
+  }
+
+  /* Grade status badges adhering to T1.12.4 */
+  .badge-fail {
+    @apply bg-red-50 text-red-700 border border-red-200 px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center justify-center;
+  }
+  .badge-pass {
+    @apply bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center justify-center;
+  }
+  .badge-excellent {
+    @apply bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center justify-center;
+  }
+  .badge-absent {
+    @apply bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center justify-center;
+  }
+}
+
+/* =========================================================================
+   4. UTILITIES & PRINT ENGINE
+   ========================================================================= */
+
+@layer utilities {
+  .touch-target {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  .text-balance-ar {
+    text-wrap: balance;
+  }
+
+  /* Exam typography classes */
+  .font-exam-header {
+    font-family: 'Amiri', serif;
+    font-weight: 700;
+  }
+  .font-exam-body {
+    font-family: 'Amiri', serif;
+    font-weight: 400;
+  }
+}
+
+/* Official A4 Print Layout */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+
+  body {
+    background-color: white !important;
+    color: black !important;
+    font-family: 'Amiri', serif !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}

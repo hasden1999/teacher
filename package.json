@@ -1,0 +1,28 @@
+{
+  "name": "@techeeer/monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "مساعد المعلم - تطبيق ويب تقدمي مستقل دون اتصال للمعلم العراقي",
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @techeeer/pwa run dev",
+    "preview": "pnpm --filter @techeeer/pwa run preview",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "test:coverage": "pnpm -r run test:coverage",
+    "test:e2e": "pnpm --filter @techeeer/tests-e2e test",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "pnpm -r run lint"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "@vitest/coverage-v8": "^3.0.5",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  }
+}

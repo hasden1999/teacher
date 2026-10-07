@@ -1,0 +1,53 @@
+{
+  "name": "مساعد المعلم",
+  "short_name": "مساعد المعلم",
+  "description": "تطبيق ويب تقدمي مستقل دون اتصال للمعلم العراقي لإدارة الدرجات والامتحانات والخطط الدراسية",
+  "id": "/?source=pwa",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "orientation": "portrait-primary",
+  "dir": "rtl",
+  "lang": "ar-IQ",
+  "theme_color": "#0F766E",
+  "background_color": "#0F766E",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "سجل الدرجات",
+      "url": "/gradebook",
+      "description": "الوصول السريع إلى سجل درجات الطلاب"
+    },
+    {
+      "name": "استوديو الأسئلة",
+      "url": "/questions",
+      "description": "إعداد أسئلة الامتحانات الشهرية والنهائية"
+    },
+    {
+      "name": "الخطط اليومية",
+      "url": "/plans",
+      "description": "متابعة الخطة الدراسية السنوية واليومية"
+    }
+  ]
+}

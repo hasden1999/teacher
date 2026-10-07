@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.turbo/
+.pnpm-store/
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+PROJECT_CONTEXT.md
+.context/
+.agents/
+.env
+.env.local
+.env.*.local
