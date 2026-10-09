@@ -1,7 +1,13 @@
+/**
+ * HandwritingOcrModal - AI Handwriting OCR & Formula Extractor
+ * Powered by Google Gemini 2.5 Flash Vision.
+ * Strict Anti-Hallucination: Extracts only authentic text and formulas written in the image.
+ * No user API key input required: Fully powered by central platform key managed by Admin.
+ */
+
 import React, { useState, useRef } from 'react';
 import { useToast } from '../common/Toast.js';
-import { MathRenderer } from './MathRenderer.js';
-import { getActiveGeminiApiKey, setActiveGeminiApiKey } from '../../config/aiConfig.js';
+import { getActiveGeminiApiKey } from '../../config/aiConfig.js';
 
 export interface HandwritingOcrModalProps {
   isOpen: boolean;
@@ -20,22 +26,6 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
   const [fileName, setFileName] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [extractedResult, setExtractedResult] = useState<string>('');
-  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => {
-    try {
-      const sessionVal = sessionStorage.getItem('techeeer_gemini_api_key');
-      if (sessionVal) return sessionVal;
-      const legacyVal = localStorage.getItem('techeeer_gemini_api_key');
-      if (legacyVal) {
-        sessionStorage.setItem('techeeer_gemini_api_key', legacyVal);
-        localStorage.removeItem('techeeer_gemini_api_key');
-        return legacyVal;
-      }
-    } catch {
-      // storage quota or sandboxed
-    }
-    return getActiveGeminiApiKey();
-  });
-  const [showApiKeyInput, setShowApiKeyInput] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
@@ -53,9 +43,8 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
 
     setFileName(file.name);
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      setSelectedImage(ev.target?.result as string);
-      // Reset previous extraction
+    reader.onload = () => {
+      setSelectedImage(reader.result as string);
       setExtractedResult('');
     };
     reader.readAsDataURL(file);
@@ -70,102 +59,98 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
     setIsProcessing(true);
 
     try {
-      // 1. Live Gemini Vision API call (using active central or custom key)
-      const keyToUse = (geminiApiKey.trim() || getActiveGeminiApiKey()).trim();
-      if (keyToUse) {
-        setActiveGeminiApiKey(keyToUse);
-        const base64Data = selectedImage.split(',')[1];
-        const mimeType = selectedImage.split(';')[0].split(':')[1] || 'image/jpeg';
+      const activeKey = getActiveGeminiApiKey();
+      if (!activeKey) {
+        showToast({
+          message: 'مفتاح الذكاء الاصطناعي المركزي غير مضبوط في لوحة الإدارة',
+          type: 'error',
+        });
+        setIsProcessing(false);
+        return;
+      }
 
-        const promptText = `أنت مساعد ذكاء اصطناعي متخصص بالتعليم والمناهج العراقية.
-قم بتحليل صورة ورقة الأسئلة المكتوبة بخط اليد واستخرج نص الأسئلة بدقة بالغة.
-التزم بالصيغة العراقية:
-- س1: نص السؤال (درجة السؤال)
+      const base64Data = selectedImage.split(',')[1];
+      const mimeType = selectedImage.split(';')[0].split(':')[1] || 'image/jpeg';
+
+      const promptText = `أنت نظام ذكاء اصطناعي فائق الدقة متخصص في قراءة واستخراج الأسئلة المكتوبة بخط اليد من أوراق الامتحانات المدرسية العراقية لمادة (${subjectName}).
+
+تعليمات صارمة لمنع التخمين والاختلاق (Strict Anti-Hallucination Rules):
+1. استخرج فقط وحصراً الكلمات والمعادلات المكتوبة بخط اليد في هذه الورقة بدقة متناهية 100%.
+2. ممنوع منعاً باتاً اختلاق أو تخمين أو إكمال أي أسئلة أو أفرع أو معادلات غير ظاهرة في الصورة.
+3. إذا كانت الصورة غير واضحة أو لا تحتوي على أسئلة مقروءة، اكتب فقط: "الصورة غير واضحة بما يكفي لاستخراج الأسئلة بدقة، يرجى إعادة التصوير بزاوية مستقيمة وإضاءة جيدة".
+4. التزم بالتنسيق العراقي لما هو مكتوب فقط:
+- س1: نص السؤال (الدرجة إن وجدت)
 - فرع أ: نص الفرع
 - فرع ب: نص الفرع
-- استخرج أي معادلات رياضية أو فيزيائية بدقة بصيغة LaTeX محاطة بعلامات $ مثل: $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$
-- استخرج المعادلات الكيميائية بصيغة \\ce{...} مثل: \\ce{2H2 + O2 -> 2H2O}
-أعد فقط نص الأسئلة الصافي بدون أي مقدمات أو خاتمة.`;
+- استخرج أي معادلات رياضية أو فيزيائية بصيغة LaTeX محاطة بـ $ مثل $x = \\frac{a}{b}$
+- استخرج أي معادلات كيميائية بصيغة \\ce{...}
+أعد فقط نص الأسئلة الصافي بدون أي مقدمات أو شروحات أو اختلاق.`;
 
-        const requestHeaders: Record<string, string> = {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': keyToUse,
-        };
-        if (keyToUse.startsWith('AQ.')) {
-          requestHeaders['Authorization'] = `Bearer ${keyToUse}`;
-        }
+      // Try primary model gemini-2.5-flash, fallback to gemini-flash-latest
+      const modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest'];
+      let candidateText = '';
+      let lastErrorStatus = 0;
 
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(keyToUse)}`,
-          {
-            method: 'POST',
-            headers: requestHeaders,
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    { text: promptText },
-                    {
-                      inline_data: {
-                        mime_type: mimeType,
-                        data: base64Data,
+      for (const model of modelsToTry) {
+        try {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(activeKey)}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    parts: [
+                      { text: promptText },
+                      {
+                        inline_data: {
+                          mime_type: mimeType,
+                          data: base64Data,
+                        },
                       },
-                    },
-                  ],
+                    ],
+                  },
+                ],
+                generationConfig: {
+                  temperature: 0.0,
                 },
-              ],
-            }),
-          }
-        );
+              }),
+            }
+          );
 
-        if (response.ok) {
-          const data = await response.json();
-          const candidateText =
-            data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          if (candidateText) {
-            setExtractedResult(candidateText);
-            showToast({
-              message: 'تم استخراج الأسئلة والمعادلات بنجاح عبر الذكاء الاصطناعي (Gemini Vision)!',
-              type: 'success',
-            });
-            setIsProcessing(false);
-            return;
+          if (response.ok) {
+            const data = await response.json();
+            candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+            if (candidateText) break;
+          } else {
+            lastErrorStatus = response.status;
           }
+        } catch {
+          // try next model
         }
       }
 
-      // 2. Intelligent Offline Fallback Engine (Zero CDN / Offline-First)
-      // Generates high-fidelity structured Iraqi ministerial question AST with math & chemical formulas
-      await new Promise((r) => setTimeout(r, 1200));
-
-      const fallbackExtracted = `س1: عرف ما يأتي: (20 درجة)
-فرع أ: المحلول المنظم وأهميته في التفاعلات الحيوية (10 درجات)
-فرع ب: مبدأ لوشاتليه وتأثير الضغط ودرجة الحرارة (10 درجات)
-
-س2: أجب عن الآتي بدقة: (20 درجة)
-فرع أ: اكتب المعادلة الكيميائية الموزونة لتفكك كربونات الكالسيوم: \\ce{CaCO3 -> CaO + CO2} (10 درجات)
-فرع ب: احسب قيمة الأس الهيدروجيني $pH$ لمحلول حامض الهيدروكلوريك بتركيز $0.01M$ مستخدماً العلاقة: $pH = -\\log[H^+]$ (10 درجات)
-
-س3: علل ما يأتي علمياً: (20 درجة)
-أولاً: تزداد قابلية ذوبان الغازات في السوائل بانخفاض درجة الحرارة (10 درجات)
-ثانياً: سلوك الماء كمادة انفوتيرية وفق نظرية برونشتد - لوري (10 درجات)
-
-س4: مسألة تطبيقية: (20 درجة)
-احسب الطاقة الحركية لجسم كتلته $m = 4kg$ يتحرك بسرعة $v = 10m/s$ مستخدماً القانون: $E_k = \\frac{1}{2} m v^2$ (20 درجة)
-
-س5: قارن بين كل مما يأتي: (20 درجة)
-فرع أ: النظام الثرموديناميكي المفتوح والنظام المغلق (10 درجات)
-فرع ب: التفاعلات الانعكاسية والتفاعلات غير الانعكاسية (10 درجات)`;
-
-      setExtractedResult(fallbackExtracted);
-      showToast({
-        message: 'تم التعرف على خط اليد واستخراج الأسئلة والمعادلات العلمية بدقة!',
-        type: 'success',
-      });
+      if (candidateText) {
+        setExtractedResult(candidateText);
+        showToast({
+          message: 'تم استخراج نصوص ومعادلات خط اليد بدقة عبر الذكاء الاصطناعي!',
+          type: 'success',
+        });
+      } else {
+        showToast({
+          message: lastErrorStatus
+            ? `تعذر استخراج النص (رمز الخطأ: ${lastErrorStatus}). يرجى التحقق من وضوح الصورة.`
+            : 'لم يتم التعرف على أي نصوص واضحة في الصورة، يرجى إعادة التصوير بوضوح أعلى.',
+          type: 'warning',
+        });
+      }
     } catch (err: any) {
       showToast({
-        message: `تعذر الاتصال الخارجي، تم تفعيل الاستخراج الذكي المحلي: ${err.message}`,
-        type: 'info',
+        message: `تعذر الاتصال بخدمة الذكاء الاصطناعي: ${err.message}`,
+        type: 'error',
       });
     } finally {
       setIsProcessing(false);
@@ -185,52 +170,44 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
   return (
     <div
       dir="rtl"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md font-tajawal animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md font-tajawal animate-in fade-in duration-200"
     >
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        {/* Mobile Drag Indicator */}
+        <div className="pt-2 pb-1 flex justify-center sm:hidden bg-teal-900">
+          <div className="w-12 h-1.5 rounded-full bg-white/40" />
+        </div>
+
         {/* Header */}
-        <div className="p-5 bg-gradient-to-r from-teal-800 to-cyan-900 text-white flex items-center justify-between">
+        <div className="p-4 sm:p-5 bg-gradient-to-r from-teal-800 to-cyan-900 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-2xl shadow-inner">
+            <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-xl shadow-inner">
               📸
             </div>
             <div>
-              <h2 className="text-lg font-extrabold flex items-center gap-2">
-                <span>استخراج الأسئلة من خط اليد (AI Vision OCR)</span>
-                <span className="text-[10px] bg-teal-500/30 border border-teal-400/40 text-teal-200 px-2 py-0.5 rounded-full font-mono">
-                  {subjectName}
+              <h2 className="text-base sm:text-lg font-extrabold flex items-center gap-2">
+                <span>استخراج الأسئلة من خط اليد</span>
+                <span className="text-[10px] bg-teal-500/30 text-teal-200 px-2 py-0.5 rounded-full border border-teal-400/40">
+                  Gemini Vision 2.5
                 </span>
               </h2>
-              <p className="text-teal-100 text-xs mt-0.5">
-                التقط صورة لورقة الأسئلة المكتوبة باليد ويقوم النظام باستخراج النص والمعادلات الكيميائية والرياضية
+              <p className="text-teal-200 text-xs mt-0.5">
+                التعرف الفوري الصارم على الأسئلة والمعادلات العلمية والرموز الرياضية والكيميائية
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-white/80 hover:text-white text-lg p-1"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition"
           >
             ✕
           </button>
         </div>
 
-        {/* Privacy Notice Banner */}
-        <div className="px-5 py-3.5 bg-amber-50/90 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900/60 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-3">
-          <span className="text-xl shrink-0 mt-0.5">⚠️</span>
-          <div className="space-y-1">
-            <p className="font-extrabold text-amber-900 dark:text-amber-100">
-              تنبيه الخصوصية والأمان لمعالجة أوراق الامتحانات:
-            </p>
-            <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
-              عند إدخال مفتاح Gemini API واستخدام التعرف السحابي المتقدم، يتم إرسال صورة ورقة الامتحان بصورة مشفرة عبر اتصال آمن (HTTPS) إلى خوادم Google لمعالجة النصوص والمعادلات. يرجى تجنب رفع أوراق تحتوي على أسماء وبيانات الطلاب الشخصية لضمان خصوصيتهم. في حال عدم إدخال مفتاح، يعتمد النظام على محرك الاستخراج المحلي دون مغادرة أي بيانات لجهازك. يتم حفظ مفتاح API في جلسة التصفح الحالية فقط (Session Storage) ويُمسح تلقائياً عند إغلاق المتصفح.
-            </p>
-          </div>
-        </div>
-
-        {/* Action Controls Toolbar */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        {/* Action Controls Bar */}
+        <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <input
               type="file"
               ref={fileInputRef}
@@ -241,7 +218,7 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="min-h-[42px] px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow transition flex items-center gap-2"
+              className="min-h-[42px] px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow transition flex items-center gap-2 active:scale-95"
             >
               <span>📷</span>
               <span>رفع صورة / التقاط بالكاميرا</span>
@@ -256,46 +233,23 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-              className="text-xs text-slate-500 dark:text-slate-400 hover:text-teal-700 underline font-medium"
-            >
-              ⚙️ إعدادات Gemini API
-            </button>
-            <button
-              type="button"
               disabled={!selectedImage || isProcessing}
               onClick={handleProcessOcr}
               className={`min-h-[42px] px-5 py-2 rounded-xl font-extrabold text-xs shadow transition flex items-center gap-2 ${
                 !selectedImage || isProcessing
                   ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95 cursor-pointer'
               }`}
             >
-              <span>{isProcessing ? 'جارِ التحليل والتعرف...' : 'بدء الاستخراج الذكي ⚡'}</span>
+              <span>{isProcessing ? 'جارِ التحليل والتعرف الصارم...' : 'بدء الاستخراج الذكي ⚡'}</span>
             </button>
           </div>
         </div>
 
-        {/* Optional API Key Row */}
-        {showApiKeyInput && (
-          <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900/60 flex items-center gap-3 text-xs">
-            <span className="font-bold text-amber-900 dark:text-amber-200 shrink-0">
-              مفتاح Gemini API (اختياري للتعرف السحابي المتقدم):
-            </span>
-            <input
-              type="password"
-              placeholder="AIzaSy..."
-              value={geminiApiKey}
-              onChange={(e) => setGeminiApiKey(e.target.value)}
-              className="flex-1 px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-800 bg-white dark:bg-slate-900 font-mono text-xs"
-            />
-          </div>
-        )}
-
         {/* Main Work Area: 2 Columns */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 p-5 overflow-y-auto">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 sm:p-5 overflow-y-auto">
           {/* Column 1: Image Preview */}
-          <div className="flex flex-col border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50 dark:bg-slate-900/60 min-h-[280px]">
+          <div className="flex flex-col border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50 dark:bg-slate-900/60 min-h-[260px]">
             <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1.5">
               <span>🖼️</span>
               <span>معاينة صورة خط اليد:</span>
@@ -305,7 +259,7 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
                 <img
                   src={selectedImage}
                   alt="ورقة الأسئلة المكتوبة بخط اليد"
-                  className="max-h-[360px] object-contain rounded-lg shadow-sm"
+                  className="max-h-[340px] object-contain rounded-lg shadow-sm"
                 />
               </div>
             ) : (
@@ -318,48 +272,42 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
                   اضغط هنا لاختيار أو التقاط صورة ورقة الامتحان
                 </p>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  يدعم صور خط اليد بالقلم الجاف أو الرصاص والمعادلات الكيميائية والرياضية
+                  يدعم خط اليد العراقي، المعادلات الرياضية، والكيميائية
                 </p>
               </div>
             )}
           </div>
 
-          {/* Column 2: Extracted Result & Math Preview */}
-          <div className="flex flex-col border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50 dark:bg-slate-900/60 min-h-[280px]">
-            <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
+          {/* Column 2: Extracted Text Editor */}
+          <div className="flex flex-col border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50 dark:bg-slate-900/60 min-h-[260px]">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <span>📝</span>
-                <span>النص والمعادلات المستخرجة:</span>
-              </span>
+                <span>النص المستخرج فعلياً (قابل للتعديل):</span>
+              </h3>
               {extractedResult && (
-                <span className="text-[11px] text-emerald-600 font-bold">جاهز للإدراج ✅</span>
+                <button
+                  type="button"
+                  onClick={() => setExtractedResult('')}
+                  className="text-[11px] text-rose-600 hover:underline"
+                >
+                  مسح
+                </button>
               )}
-            </h3>
+            </div>
 
             <textarea
-              dir="rtl"
               value={extractedResult}
               onChange={(e) => setExtractedResult(e.target.value)}
-              placeholder="سيظهر نص الأسئلة والمعادلات المستخرجة هنا تلقائياً، مع إمكانية التعديل عليها..."
-              className="flex-1 min-h-[240px] p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-tajawal text-xs leading-relaxed focus:ring-2 focus:ring-teal-600 focus:outline-none resize-none"
+              placeholder="سيظهر هنا النص المستخرج من الصورة حرفياً وبدون أي تأليف... يمكنك مراجعته وتعديل أي كلمة قبل اعتماده."
+              rows={12}
+              className="flex-1 w-full p-3.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none text-slate-800 dark:text-slate-200"
             />
-
-            {/* Formula Preview Badge */}
-            {extractedResult && (
-              <div className="mt-3 p-2.5 bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 max-h-[140px] overflow-y-auto">
-                <div className="text-[10px] font-bold text-slate-400 mb-1">
-                  معاينة إخراج المعادلات (KaTeX / mhchem):
-                </div>
-                <div className="text-xs text-slate-800 dark:text-slate-200">
-                  <MathRenderer text={extractedResult} />
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
+        {/* Footer Actions */}
+        <div className="p-4 bg-slate-100 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <button
             type="button"
             onClick={onClose}
@@ -367,18 +315,19 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
           >
             إلغاء
           </button>
+
           <button
             type="button"
             disabled={!extractedResult.trim()}
             onClick={handleApply}
-            className={`min-h-[44px] px-6 py-2 rounded-xl font-extrabold text-xs shadow transition flex items-center gap-2 ${
+            className={`min-h-[44px] px-6 py-2 rounded-xl font-extrabold text-xs shadow-md transition flex items-center gap-2 ${
               !extractedResult.trim()
                 ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
-                : 'bg-teal-700 hover:bg-teal-800 text-white active:scale-95'
+                : 'bg-teal-700 hover:bg-teal-800 text-white active:scale-95 cursor-pointer'
             }`}
           >
-            <span>إدراج في ورقة الأسئلة الآن</span>
-            <span>📥</span>
+            <span>إدراج الأسئلة في ورقة الامتحان</span>
+            <span>✓</span>
           </button>
         </div>
       </div>

@@ -234,8 +234,9 @@ export const VoiceGradeEntryModal: React.FC<VoiceGradeEntryModalProps> = ({
     const apiKey = getActiveGeminiApiKey();
 
     if (!apiKey) {
-      setAiStatusMessage('مفتاح الذكاء الاصطناعي غير متوفر - جاري الانتقال للتحليل التقديري الاحتياطي...');
-      fallbackLocalParsing();
+      setAiStatusMessage('مفتاح الذكاء الاصطناعي غير مضبوط في لوحة الإدارة');
+      showToast({ message: 'مفتاح الذكاء الاصطناعي غير مضبوط في لوحة الإدارة', type: 'error' });
+      setMatches([]);
       setIsAiProcessing(false);
       return;
     }
@@ -250,22 +251,21 @@ export const VoiceGradeEntryModal: React.FC<VoiceGradeEntryModalProps> = ({
         roll: s.rollNumber,
       }));
 
-      const systemPrompt = `أنت مساعد ذكاء اصطناعي لمعلم عراقي يقرأ درجات طلابه بصوته.
+      const systemPrompt = `أنت مساعد ذكاء اصطناعي لمعلم عراقي يقرأ درجات طلابه بصوته لمادة تقييمها: "${activeCol.label}" والدرجة العظمى هي (${maxScore}).
 استمع للملف الصوتي المرفق بدقة بالغة. المعلم يتحدث باللهجة العراقية الدارجة أو الفصحى، ويذكر أسماء الطلاب ودرجاتهم أو حالات الغياب.
 
-معلومات العمود الحالي:
-- اسم التقييم: "${activeCol.label}" (${activeCol.shortLabel})
-- الدرجة العظمى: ${maxScore}
-
-قائمة الطلاب الرسمية في هذه الشعبة:
+تعليمات صارمة لمنع التخمين أو التأليف (Strict Anti-Hallucination Rules):
+1. استخرج فقط وحصراً ما تسمعه في المقطع الصوتي بدقة متناهية. ممنوع منعاً باتاً اختلاق أو تخمين أو إكمال أي اسم أو درجة لم تُذكر بوضوح.
+2. إذا لم يُذكر أي طالب في التسجيل، أو كان التسجيل صامتاً أو غير مفهوم، أعد فقط مصفوفة فارغة [] ولا تؤلف أي بيانات نهائياً.
+3. طابق كل اسم منطوق فقط مع قائمة الطلاب الرسمية في هذه الشعبة:
 ${JSON.stringify(studentsRosterSummary, null, 2)}
 
-مصطلحات ومفردات عراقية متوقعة:
+مصطلحات ومفردات عراقية متوقعة لما هو منطوق:
 - الأرقام: "صفر" (0)، "واحد" (1)، "اثنين" (2)، "ثلاثة" (3)، "اربعة" (4)، "خمسة" (5)، "ستة" (6)، "سبعة" (7)، "ثمانية" (8)، "تسعة" (9)، "عشرة" (10)، "دعش/ادعش" (11)، "ثنعش/اثنعش" (12)، "تلطعش/تلتعش" (13)، "اربعطعش" (14)، "خمسطعش" (15)، "سطعش/ستطعش" (16)، "سبعطعش" (17)، "ثمنطعش" (18)، "تسعطعش" (19)، "عشرين" (20)، "فول" أو "كاملة" تعني الدرجة الكاملة (${maxScore})، "مية" تعني 100.
 - الغياب: "غائب"، "غايب"، "ماكو"، "ما مداوم"، "مجاز".
 
 المطلوب:
-1. طابق كل اسم طالب مذكور مع الطالب الأقرب له في القائمة المعطاة.
+1. طابق فقط الأسماء المذكورة فعلياً في الصوت مع الطالب الأقرب له في القائمة.
 2. استخرج الدرجة كرقم صحيح، أو حدد isAbsent: true و detectedScore: null في حال ذكر غيابه.
 3. أعد فقط مصفوفة JSON صالحة مطابقة لهذا النمط وبدون أي علامات Markdown أخرى:
 [
@@ -281,54 +281,59 @@ ${JSON.stringify(studentsRosterSummary, null, 2)}
 
       setAiStatusMessage('الذكاء الاصطناعي يستمع للصوت ويطابق أسماء الطلاب والدرجات...');
 
-      const requestHeaders: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (apiKey.startsWith('AQ.')) {
-        requestHeaders['Authorization'] = `Bearer ${apiKey}`;
-      } else {
-        requestHeaders['x-goog-api-key'] = apiKey;
-      }
+      const modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest'];
+      let parsedArray: any[] | null = null;
+      let lastErrorStatus = 0;
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-          method: 'POST',
-          headers: requestHeaders,
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: systemPrompt },
+      for (const model of modelsToTry) {
+        try {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                contents: [
                   {
-                    inline_data: {
-                      mime_type: mimeType,
-                      data: base64Audio,
-                    },
+                    parts: [
+                      { text: systemPrompt },
+                      {
+                        inline_data: {
+                          mime_type: mimeType,
+                          data: base64Audio,
+                        },
+                      },
+                    ],
                   },
                 ],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.1,
-              response_mime_type: 'application/json',
-            },
-          }),
-        }
-      );
+                generationConfig: {
+                  temperature: 0.0,
+                  response_mime_type: 'application/json',
+                },
+              }),
+            }
+          );
 
-      if (!response.ok) {
-        throw new Error(`Gemini Audio API error: ${response.status}`);
+          if (response.ok) {
+            const result = await response.json();
+            const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            const cleanedJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleanedJson);
+            if (Array.isArray(parsed)) {
+              parsedArray = parsed;
+              break;
+            }
+          } else {
+            lastErrorStatus = response.status;
+          }
+        } catch {
+          // try next model
+        }
       }
 
-      const result = await response.json();
-      const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-      // Clean JSON string if wrapped in markdown
-      const cleanedJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsedArray = JSON.parse(cleanedJson);
-
-      if (Array.isArray(parsedArray) && parsedArray.length > 0) {
+      if (parsedArray && parsedArray.length > 0) {
         const mappedMatches: ParsedMatchItem[] = [];
 
         parsedArray.forEach((item: any) => {
@@ -366,37 +371,24 @@ ${JSON.stringify(studentsRosterSummary, null, 2)}
         }
       }
 
-      // If empty or no match
-      fallbackLocalParsing();
+      // No matches found or quiet/unrecognized audio
+      setMatches([]);
+      showToast({
+        message: lastErrorStatus
+          ? `تعذر الاتصال بالذكاء الاصطناعي (رمز: ${lastErrorStatus}). يرجى التحقق من اتصال الإنترنت.`
+          : 'لم يتم رصد أسماء أو درجات واضحة في التسجيل. يرجى التحدث بوضوح والتأكد من ذكر أسماء الطلاب المسجلين.',
+        type: 'info',
+      });
     } catch (err: any) {
       console.warn('Gemini Audio API analysis failed:', err);
+      setMatches([]);
       showToast({
-        message: 'فشلت معالجة الصوت بالذكاء الاصطناعي - جاري استخدام التحليل المحلي',
-        type: 'warning',
+        message: 'فشلت معالجة الصوت: تأكد من وضوح التسجيل واستقرار اتصال الإنترنت',
+        type: 'error',
       });
-      fallbackLocalParsing();
     } finally {
       setIsAiProcessing(false);
     }
-  };
-
-  // Local fallback parsing (ensures teacher is never blocked)
-  const fallbackLocalParsing = () => {
-    // Generate intelligent Iraqi sample matching active students
-    const sampleResults: ParsedMatchItem[] = students.slice(0, 6).map((std, i) => {
-      const demoScores = [18, 15, 20, null, 19, 14];
-      const isAbsent = i === 3;
-      return {
-        student: std,
-        spokenName: std.fullName,
-        detectedScore: isAbsent ? null : Math.min(maxScore, demoScores[i] ?? 16),
-        isAbsent,
-        confidence: 0.88,
-        isConfirmed: true,
-        notes: isAbsent ? 'تم التعرف على كلمة غائب' : 'مطابقة محلية مدعومة',
-      };
-    });
-    setMatches(sampleResults);
   };
 
   // Apply grades into Gradebook

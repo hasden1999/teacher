@@ -685,7 +685,7 @@ export const AdminDashboard: React.FC = () => {
                     <div>
                       <h3 className="text-sm font-bold text-white">إدارة مفتاح الذكاء الاصطناعي المركزي</h3>
                       <p className="text-xs text-slate-400">
-                        مفتاح Google Gemini المستخدم في استخراج الأسئلة من خط اليد لجميع المعلمين
+                        مفتاح Google Gemini المركزي المستخدم في استخراج الأسئلة من خط اليد والرصد الصوتي للدرجات لجميع المعلمين
                       </p>
                     </div>
                   </div>
