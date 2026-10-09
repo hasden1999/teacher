@@ -126,9 +126,13 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
   return (
     <div
       dir="rtl"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm font-tajawal animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/70 backdrop-blur-sm font-tajawal animate-in fade-in duration-200"
     >
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh]">
+        {/* Mobile Drag Indicator */}
+        <div className="pt-2 pb-1 flex justify-center sm:hidden bg-teal-800">
+          <div className="w-12 h-1.5 rounded-full bg-white/40" />
+        </div>
         {/* Header */}
         <div className="p-6 bg-gradient-to-r from-teal-700 to-emerald-800 text-white relative">
           <div className="flex items-center gap-3">

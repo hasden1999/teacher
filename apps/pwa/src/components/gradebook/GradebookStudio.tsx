@@ -19,6 +19,7 @@ import { CANONICAL_GRADE_COLUMNS } from './types.js';
 
 import { decomposeSimplifiedScore } from '@techeeer/core';
 import { VoiceGradeEntryModal } from './VoiceGradeEntryModal.js';
+import { MobileStudentCardsView } from './MobileStudentCardsView.js';
 
 // Default initial demo dataset (representative Iraqi students roster)
 const INITIAL_DEMO_STUDENTS: StudentRowItem[] = [
@@ -81,6 +82,8 @@ export const GradebookStudio: React.FC = () => {
   const [grades, setGrades] = useState<GradebookMatrix>(INITIAL_DEMO_GRADES);
   const [activeMode, setActiveMode] = useState<'detailed' | 'simplified'>('detailed');
   const [activeDivision, setActiveDivision] = useState<string>('شعبة أ');
+  const [activeMobileColumnKey, setActiveMobileColumnKey] = useState<string>('component_oral');
+  const [viewType, setViewType] = useState<'cards' | 'table'>('cards');
 
   // Modals state
   const [batchModalColumn, setBatchModalColumn] = useState<GradeColumnDef | null>(null);
@@ -298,6 +301,32 @@ export const GradebookStudio: React.FC = () => {
             </button>
           </div>
 
+          {/* Mobile View Switcher (Cards vs Table) */}
+          <div className="flex md:hidden items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setViewType('cards')}
+              className={`min-h-[38px] px-3 py-1 rounded-lg text-xs font-bold transition ${
+                viewType === 'cards'
+                  ? 'bg-teal-700 text-white shadow'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              📱 بطاقات
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewType('table')}
+              className={`min-h-[38px] px-3 py-1 rounded-lg text-xs font-bold transition ${
+                viewType === 'table'
+                  ? 'bg-teal-700 text-white shadow'
+                  : 'text-slate-600 dark:text-slate-400'
+              }`}
+            >
+              📊 جدول
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => setIsVoiceModalOpen(true)}
@@ -318,8 +347,23 @@ export const GradebookStudio: React.FC = () => {
         </div>
       </div>
 
-      {/* Virtualized Student Gradebook Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden min-h-[500px]">
+      {/* Main View: Mobile Cards or Virtual Table */}
+      {viewType === 'cards' ? (
+        <div className="md:hidden">
+          <MobileStudentCardsView
+            students={students}
+            grades={grades}
+            columns={CANONICAL_GRADE_COLUMNS}
+            activeColumnKey={activeMobileColumnKey}
+            onColumnChange={setActiveMobileColumnKey}
+            onGradeChange={handleGradeChange}
+            onStudentSelect={(std) => setSelectedStudentForCard(std)}
+            onOpenVoiceModal={() => setIsVoiceModalOpen(true)}
+          />
+        </div>
+      ) : null}
+
+      <div className={`${viewType === 'cards' ? 'hidden md:block' : 'block'} bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden min-h-[500px]`}>
         <VirtualGradebookTable
           students={students}
           grades={grades}
@@ -329,6 +373,18 @@ export const GradebookStudio: React.FC = () => {
           onBatchFillRequest={(col) => setBatchModalColumn(col)}
           onStudentSelect={(std) => setSelectedStudentForCard(std)}
         />
+      </div>
+
+      {/* Floating Action Button (FAB) for Instant AI Voice Entry on Mobile */}
+      <div className="md:hidden fixed bottom-20 start-4 z-40">
+        <button
+          type="button"
+          onClick={() => setIsVoiceModalOpen(true)}
+          className="w-14 h-14 rounded-full bg-gradient-to-tr from-teal-800 to-emerald-600 hover:from-teal-700 hover:to-emerald-500 text-white shadow-2xl flex items-center justify-center text-2xl active:scale-95 transition-all ring-4 ring-white dark:ring-slate-900 shadow-teal-900/30 cursor-pointer"
+          aria-label="رصد الدرجات بالصوت الذكي"
+        >
+          🎙️
+        </button>
       </div>
 
       {/* Batch Fill Modal */}
