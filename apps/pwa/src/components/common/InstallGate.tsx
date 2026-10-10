@@ -60,11 +60,9 @@ export const InstallGate: React.FC<InstallGateProps> = ({
     };
   }, []);
 
-  // Pass-through if already standalone or user dismissed the prompt for this session
-  if (standalone || dismissed) {
-    return <>{children}</>;
-  }
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
+  // Direct app launch: NEVER block children!
   const handleInstallClick = async () => {
     if (deferredPrompt) {
       await deferredPrompt.prompt();
@@ -73,93 +71,126 @@ export const InstallGate: React.FC<InstallGateProps> = ({
         setStandalone(true);
       }
       setDeferredPrompt(null);
-    }
-  };
-
-  const handleDismiss = () => {
-    setDismissed(true);
-    try {
-      if (typeof sessionStorage !== 'undefined') {
-        sessionStorage.setItem('techeeer_install_gate_dismissed', 'true');
-      }
-    } catch {
-      // Ignore
+    } else {
+      setIsModalOpen(true);
     }
   };
 
   return (
-    <div
-      dir="rtl"
-      className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 text-slate-800"
-    >
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
-        {/* Header Hero */}
-        <div className="bg-teal-700 text-white p-6 text-center">
-          <div className="w-16 h-16 bg-white/10 rounded-2xl mx-auto flex items-center justify-center text-3xl mb-3 shadow-inner">
-            📚
-          </div>
-          <h1 className="text-xl font-bold font-sans">مساعد المعلم العراقي</h1>
-          <p className="text-xs text-teal-100 mt-1">المنظومة التعليمية المستقلة - تعمل دون إنترنت</p>
-        </div>
+    <>
+      {/* 1. Main Application always loads directly - Non blocking */}
+      {children}
 
-        {/* Value Proposition Badges */}
-        <div className="p-6 space-y-4">
-          <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <span className="w-6 h-6 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center text-xs shrink-0 font-bold">✓</span>
-              <p className="text-xs text-slate-700"><strong>دون اتصال 100%:</strong> يعمل في وضع الطيران دون الحاجة للشبكة أو باقات البيانات.</p>
+      {/* 2. Sleek Non-Blocking Install Action Bar / Pill when running in browser mode */}
+      {!standalone && !dismissed && (
+        <div
+          dir="rtl"
+          className="fixed bottom-18 md:bottom-4 start-4 z-40 flex flex-col gap-2 p-3 bg-gradient-to-r from-teal-900 via-slate-900 to-emerald-950 text-white rounded-2xl shadow-2xl border border-teal-500/40 font-tajawal animate-in fade-in slide-in-from-bottom duration-300 backdrop-blur-md max-w-sm"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-lg shadow-inner">
+                📲
+              </div>
+              <div className="flex flex-col text-start">
+                <span className="text-xs font-extrabold leading-tight">مساعد المعلم العراقي</span>
+                <span className="text-[10px] text-teal-300">المنظومة التعليمية المستقلة</span>
+              </div>
             </div>
-            <div className="flex items-start gap-3">
-              <span className="w-6 h-6 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center text-xs shrink-0 font-bold">✓</span>
-              <p className="text-xs text-slate-700"><strong>حفظ محلي آمن:</strong> تخزين مشفر لقواعد بيانات الطلاب داخل هاتفك فقط.</p>
-            </div>
-            <div className="flex items-start gap-3">
-              <span className="w-6 h-6 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center text-xs shrink-0 font-bold">✓</span>
-              <p className="text-xs text-slate-700"><strong>تطبيق مستقل:</strong> شاشة كاملة وسرعة فائقة تشبه تطبيقات النظام الأصلية.</p>
-            </div>
-          </div>
 
-          {/* Platform Specific Action */}
-          {platform === 'ios' ? (
-            <div className="p-4 bg-teal-50 border border-teal-200 rounded-2xl space-y-2">
-              <p className="text-xs font-bold text-teal-900">طريقة التثبيت على أجهزة iPhone / iPad:</p>
-              <ol className="list-decimal list-inside text-xs text-teal-800 space-y-1">
-                <li>اضغط على زر المشاركة <strong>(Share ⎋)</strong> في أسفل شاشة Safari.</li>
-                <li>مرر القائمة واختر <strong>«إضافة إلى الشاشة الرئيسية» (Add to Home Screen ⊞)</strong>.</li>
-                <li>اضغط على <strong>«إضافة» (Add)</strong> أعلى الشاشة لتثبيت التطبيق.</li>
-              </ol>
-            </div>
-          ) : (
-            <div className="space-y-3 pt-2">
-              {deferredPrompt ? (
-                <button
-                  type="button"
-                  onClick={handleInstallClick}
-                  className="w-full min-h-[48px] px-6 py-3 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-2xl shadow transition flex items-center justify-center gap-2"
-                >
-                  <span>تثبيت التطبيق على الهاتف الآن</span>
-                  <span>📲</span>
-                </button>
-              ) : (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs text-slate-600">
-                  لتثبيت التطبيق: افتح قائمة خيارات المتصفح (⋮) ثم اضغط <strong>«تثبيت التطبيق»</strong> أو <strong>«إضافة إلى الشاشة الرئيسية»</strong>.
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Bypass Button */}
-          <div className="pt-2 text-center">
             <button
               type="button"
-              onClick={handleDismiss}
-              className="min-h-[48px] px-4 text-xs text-slate-500 hover:text-slate-800 font-medium underline py-2 transition"
+              onClick={() => {
+                setDismissed(true);
+                try {
+                  sessionStorage.setItem('techeeer_install_gate_dismissed', 'true');
+                } catch {}
+              }}
+              className="text-[11px] text-slate-300 hover:text-white px-2 py-1 rounded-lg transition"
+              aria-label="المتابعة من المتصفح مؤقتاً"
             >
               المتابعة من المتصفح مؤقتاً
             </button>
           </div>
+
+          {platform === 'ios' && (
+            <div className="text-[11px] text-teal-200 bg-white/10 p-2 rounded-xl space-y-1">
+              <span className="font-bold block">طريقة التثبيت على أجهزة iPhone / iPad:</span>
+              <p>اضغط على مشاركة (Share ⎋) ثم اختر «إضافة إلى الشاشة الرئيسية» لتثبيته.</p>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <span className="text-[10px] text-slate-400">للعمل بدون نت وشاشة كاملة</span>
+            <button
+              type="button"
+              onClick={handleInstallClick}
+              className="px-3.5 py-1.5 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-xs font-black shadow transition active:scale-95 cursor-pointer"
+            >
+              تثبيت التطبيق الآن
+            </button>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+
+      {/* 3. Detailed Guide Modal */}
+      {isModalOpen && (
+        <div
+          dir="rtl"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm font-tajawal animate-in fade-in duration-200"
+        >
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col">
+            <div className="bg-gradient-to-r from-teal-800 to-emerald-800 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="text-2xl">📲</span>
+                <h3 className="text-base font-extrabold">طريقة تثبيت مساعد المعلم</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs text-slate-700 dark:text-slate-300">
+              {platform === 'ios' ? (
+                <div className="space-y-3">
+                  <p className="font-bold text-teal-800 dark:text-teal-300 text-sm">
+                    طريقة التثبيت على أجهزة iPhone / iPad:
+                  </p>
+                  <ol className="list-decimal list-inside space-y-2 bg-teal-50 dark:bg-teal-950/60 p-3.5 rounded-2xl border border-teal-200 dark:border-teal-800">
+                    <li>اضغط على زر المشاركة <strong>(Share ⎋)</strong> أسفل الشاشة.</li>
+                    <li>اختر <strong>«إضافة إلى الشاشة الرئيسية» (Add to Home Screen ⊞)</strong>.</li>
+                    <li>اضغط <strong>«إضافة» (Add)</strong> بالأعلى ليظهر التطبيق مع برامجك.</li>
+                  </ol>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="font-bold text-teal-800 dark:text-teal-300 text-sm">
+                    للتثبيت على Android و Windows عبر المتصفح:
+                  </p>
+                  <ol className="list-decimal list-inside space-y-2 bg-slate-50 dark:bg-slate-800 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <li>افتح قائمة الخيارات <strong>(⋮)</strong> أعلى أو أسفل المتصفح.</li>
+                    <li>اضغط على <strong>«تثبيت التطبيق» (Install app)</strong> أو «إضافة إلى الشاشة الرئيسية».</li>
+                    <li>أكّد التثبيت ليفتح التطبيق في نافذة مستقلة دون إنترنت.</li>
+                  </ol>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                className="w-full min-h-[42px] bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl shadow transition"
+              >
+                تم، فهمت ذلك ✓
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
+

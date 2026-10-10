@@ -40,10 +40,24 @@ export interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
+const defaultToastValue: ToastContextValue = {
+  toasts: [],
+  showToast: (opts) => {
+    if (typeof console !== 'undefined') console.log('[Toast]', opts.message);
+    return 'fallback_toast';
+  },
+  showUndoToast: (opts) => {
+    if (typeof console !== 'undefined') console.log('[UndoToast]', opts.message);
+    return 'fallback_undo';
+  },
+  dismissToast: () => {},
+  clearAll: () => {},
+};
+
 export function useToast(): ToastContextValue {
   const context = useContext(ToastContext);
   if (!context) {
-    throw new Error('useToast must be used within a ToastProvider');
+    return defaultToastValue;
   }
   return context;
 }

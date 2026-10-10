@@ -431,6 +431,40 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
         </div>
       </div>
 
+      {/* 5. Master Platform Admin Portal Shortcut */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-950 text-white rounded-2xl p-6 shadow-md border border-slate-800 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-teal-600/30 border border-teal-500/40 text-teal-300 text-xl flex items-center justify-center">
+              👑
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                <span>بوابة مالك المنصة (لوحة تحكم الأدمن)</span>
+                <span className="text-[10px] bg-teal-900/80 text-teal-300 border border-teal-700/60 px-2 py-0.5 rounded-full font-mono">
+                  SaaS Admin
+                </span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                إدارة المشتركين، توليد التراخيص المشفرة، والتحكم بمفتاح الذكاء الاصطناعي المركزي
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              window.location.hash = '#admin';
+              window.location.reload();
+            }}
+            className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md transition flex items-center gap-2 cursor-pointer active:scale-95"
+          >
+            <span>🔐</span>
+            <span>الدخول إلى لوحة تحكم الأدمن</span>
+          </button>
+        </div>
+      </div>
+
       {/* Modals */}
       <ActivationGateModal
         isOpen={isActivationModalOpen}

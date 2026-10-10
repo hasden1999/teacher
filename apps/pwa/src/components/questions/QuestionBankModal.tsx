@@ -10,6 +10,8 @@ import {
   type QuestionDifficulty,
 } from '@techeeer/content';
 import { MathRenderer } from './MathRenderer.js';
+import { useToast } from '../common/Toast.js';
+import { getActiveGeminiApiKey } from '../../config/aiConfig.js';
 
 export interface QuestionBankModalProps {
   isOpen: boolean;
@@ -73,6 +75,17 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   const [ministerialOnly, setMinisterialOnly] = useState(false);
   const [expandedAnswers, setExpandedAnswers] = useState<Record<string, boolean>>({});
 
+  // AI Curriculum Questions State
+  const [aiGeneratedQuestions, setAiGeneratedQuestions] = useState<QuestionBankItem[]>(() => {
+    try {
+      const raw = localStorage.getItem('techeeer_ai_curriculum_questions');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
+
   // New Custom Question Form State
   const [customText, setCustomText] = useState('');
   const [customModelAnswer, setCustomModelAnswer] = useState('');
@@ -81,15 +94,18 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   const [customScore, setCustomScore] = useState<number>(10);
   const [customSavedMessage, setCustomSavedMessage] = useState('');
 
+  const { showToast } = useToast();
+
   // Fetch applicable chapters from content package
   const availableChapters = useMemo(() => {
     if (!subject) return [];
     return getChaptersBySubject(subject, grade, stream);
   }, [subject, grade, stream]);
 
-  // Filtered Questions Feed
+  // Combined Questions Feed (Static + AI Generated Curriculum Questions)
   const filteredQuestions = useMemo(() => {
-    let list = filterQuestions(QUESTION_BANK, {
+    const combinedPool = [...QUESTION_BANK, ...aiGeneratedQuestions];
+    let list = filterQuestions(combinedPool, {
       subject: subject as any,
       grade,
       stage,
@@ -111,12 +127,113 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
     }
 
     return list;
-  }, [subject, grade, stage, stream, selectedChapter, selectedType, selectedDifficulty, ministerialOnly, searchTerm]);
+  }, [subject, grade, stage, stream, selectedChapter, selectedType, selectedDifficulty, ministerialOnly, searchTerm, aiGeneratedQuestions]);
 
   if (!isOpen) return null;
 
   const toggleModelAnswer = (id: string) => {
     setExpandedAnswers(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Generate Questions for the selected chapter strictly from official Iraqi curriculum
+  const handleGenerateAiChapterQuestions = async (overrideChapter?: number) => {
+    const activeKey = getActiveGeminiApiKey();
+    if (!activeKey) {
+      showToast({ message: 'مفتاح الذكاء الاصطناعي المركزي غير مضبوط في لوحة الإدارة', type: 'error' });
+      return;
+    }
+
+    const effectiveChapter = overrideChapter !== undefined ? overrideChapter : selectedChapter;
+    const targetChapterNum = effectiveChapter === 'all' ? 1 : effectiveChapter;
+    const currentChapterObj = availableChapters.find(c => c.chapterNumber === targetChapterNum) || availableChapters[0];
+
+    const chapterTitle = currentChapterObj?.chapterTitle || `الفصل ${targetChapterNum}`;
+    const topicsList = currentChapterObj?.topics || [];
+
+    setIsGeneratingAi(true);
+    showToast({ message: `جاري استخراج وتوليد الأسئلة المنهجية للفصل (${chapterTitle}) عبر الذكاء الاصطناعي...`, type: 'info' });
+
+    try {
+      const prompt = `أنت موجه تربوي وخبير امتحانات معتمد من وزارة التربية العراقية لمادة (${subject || 'العلوم'}) للصف (${grade || 5}).
+المطلوب توليد 5 إلى 7 أسئلة امتحانية وزارية نموذجية حصرية ومباشرة من كتاب وزارة التربية العراقية الرسمي المعتمد للفصل: "${chapterTitle}" وموضوعاته الرسمية:
+${topicsList.length > 0 ? topicsList.join('، ') : 'مفردات ومواضيع هذا الفصل في المنهج العراقي الرسمي'}
+
+تعليمات صارمة لمنع التأليف أو الاختلاق (Strict Anti-Hallucination Rules):
+1. اعتمد فقط وحصراً على المنهج العراقي الرسمي المعتمد والمصطلحات الدقيقة دون أي تأليف خارج الكتاب.
+2. نوع في الأنماط: تعاريف (essay)، تعاليل (essay)، فراغات (fill_blank)، اختيار من متعدد (mcq)، ومسائل أو مقارنات (problem).
+3. أعد فقط مصفوفة JSON صالحة بالهيكل التالي دون أي نص إضافي:
+[
+  {
+    "text": "نص السؤال الوزاري بدقة",
+    "type": "essay",
+    "topic": "${chapterTitle}",
+    "modelAnswer": "الجواب النموذجي الدقيق المعتمد في المنهج العراقي",
+    "defaultMarks": 5,
+    "difficulty": "medium",
+    "isMinisterial": true
+  }
+]`;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(activeKey)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              response_mime_type: 'application/json',
+              temperature: 0.1,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`خطأ في استجابة الخادم (${response.status})`);
+      }
+
+      const data = await response.json();
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const parsed = JSON.parse(rawText.replace(/```json/g, '').replace(/```/g, '').trim());
+
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const mappedQuestions: QuestionBankItem[] = parsed.map((item, idx) => ({
+          id: `ai_gen_${Date.now()}_${idx}`,
+          subject: (subject as any) || 'science_primary',
+          grade: grade || 5,
+          stage: stage || 'primary',
+          stream: stream || 'general',
+          chapter: targetChapterNum,
+          topic: item.topic || chapterTitle,
+          type: (item.type as any) || 'essay',
+          difficulty: (item.difficulty as any) || 'medium',
+          text: item.text,
+          modelAnswer: item.modelAnswer || '',
+          defaultMarks: item.defaultMarks || 5,
+          isMinisterial: true,
+          tags: ['منهج عراقي رسمي', 'توليد ذكي', chapterTitle],
+        }));
+
+        const updated = [...mappedQuestions, ...aiGeneratedQuestions];
+        setAiGeneratedQuestions(updated);
+        try {
+          localStorage.setItem('techeeer_ai_curriculum_questions', JSON.stringify(updated));
+        } catch {}
+
+        showToast({
+          message: `تم بنجاح توليد ${mappedQuestions.length} أسئلة وزارية معتمدة للفصل (${chapterTitle})!`,
+          type: 'success',
+        });
+      } else {
+        showToast({ message: 'لم يتم استخراج أسئلة كافية، يرجى المحاولة مرة أخرى', type: 'warning' });
+      }
+    } catch (err: any) {
+      console.error('Failed to generate AI questions:', err);
+      showToast({ message: `تعذر توليد الأسئلة: ${err.message || 'خطأ غير متوقع'}`, type: 'error' });
+    } finally {
+      setIsGeneratingAi(false);
+    }
   };
 
   const handleSaveCustom = async (e: React.FormEvent) => {
@@ -252,6 +369,32 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                     ))}
                   </select>
                 )}
+
+                {/* AI Chapter Question Generation Button */}
+                <button
+                  type="button"
+                  onClick={() => handleGenerateAiChapterQuestions(selectedChapter === 'all' ? undefined : selectedChapter)}
+                  disabled={isGeneratingAi}
+                  className="min-h-[48px] px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-[0.98] text-white text-xs sm:text-sm font-bold shadow-md shadow-teal-900/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
+                  title="توليد أسئلة نموذجية وزارية معتمدة من كتاب وزارة التربية العراقية للفصل المختار"
+                >
+                  {isGeneratingAi ? (
+                    <>
+                      <span className="inline-block animate-spin">⏳</span>
+                      <span>جارٍ التوليد من المنهج العراقي...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✨</span>
+                      <span>
+                        {selectedChapter === 'all'
+                          ? 'توليد أسئلة للمنهج كاملاً'
+                          : `توليد أسئلة الفصل (${selectedChapter}) بالذكاء الاصطناعي`}
+                      </span>
+                      <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-mono">🇮🇶 وزاري</span>
+                    </>
+                  )}
+                </button>
               </div>
 
               {/* Filters Chips Row */}
@@ -313,6 +456,11 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                           <span className="bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
                             ⭐ وزاري
                             {q.ministerialMeta && ` ${q.ministerialMeta.year || ''}`}
+                          </span>
+                        )}
+                        {q.tags?.includes('توليد ذكي') && (
+                          <span className="bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            🇮🇶 موثق من المنهج
                           </span>
                         )}
                         <span className="bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-200 px-2 py-0.5 rounded-md font-medium">

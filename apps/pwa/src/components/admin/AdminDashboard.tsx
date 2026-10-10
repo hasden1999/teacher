@@ -16,12 +16,17 @@ export interface IssuedLicenseRecord {
   id: string;
   teacherName: string;
   phone: string;
+  schoolName?: string;
+  governorate?: string;
+  subject?: string;
   tier: SubscriptionTier;
   tierLabel: string;
   issuedAt: number;
   expiresAt: number;
   token: string;
   priceIqd: number;
+  isLocalProfile?: boolean;
+  status?: 'active' | 'trial' | 'expired';
 }
 
 const STORAGE_KEY_LEDGER = 'techeeer_admin_license_ledger';
@@ -43,7 +48,7 @@ export const AdminDashboard: React.FC = () => {
   const [lockoutInfo, setLockoutInfo] = useState<AdminLockoutInfo>(authService.getAdminLockoutInfo());
   
   // Navigation tab inside admin portal
-  const [adminTab, setAdminTab] = useState<'generator' | 'subscribers' | 'settings'>('generator');
+  const [adminTab, setAdminTab] = useState<'generator' | 'subscribers' | 'settings'>('subscribers');
 
   // Generator form state
   const [targetPhone, setTargetPhone] = useState<string>('');
@@ -51,6 +56,14 @@ export const AdminDashboard: React.FC = () => {
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('annual');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
+
+  // Manual Add Subscriber Form Modal
+  const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+  const [newSubName, setNewSubName] = useState<string>('');
+  const [newSubPhone, setNewSubPhone] = useState<string>('');
+  const [newSubSchool, setNewSubSchool] = useState<string>('');
+  const [newSubGov, setNewSubGov] = useState<string>('بغداد');
+  const [newSubTier, setNewSubTier] = useState<SubscriptionTier>('annual');
 
   // Subscribers Ledger state
   const [ledger, setLedger] = useState<IssuedLicenseRecord[]>(() => {
@@ -75,6 +88,51 @@ export const AdminDashboard: React.FC = () => {
       setLockoutInfo(authService.getAdminLockoutInfo());
     }, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Auto-synchronize registered local teacher into ledger if not already present
+  useEffect(() => {
+    try {
+      const localProfile = authService.getTeacherProfile();
+      const localLicense = authService.getActiveLicense();
+      const localTrial = authService.getTrialStatus();
+
+      if (localProfile && localProfile.phone) {
+        setLedger(prev => {
+          const exists = prev.some(r => r.phone === localProfile.phone);
+          if (!exists) {
+            const tier = localLicense?.tier || 'annual';
+            const tierObj = SUBSCRIPTION_TIERS.find(t => t.id === tier);
+            const now = Date.now();
+            const expires = localLicense?.expiresAt || (now + 365 * 24 * 60 * 60 * 1000);
+
+            const record: IssuedLicenseRecord = {
+              id: `local_teacher_${localProfile.phone}`,
+              teacherName: localProfile.fullName || 'الأستاذ المسجل',
+              phone: localProfile.phone,
+              schoolName: localProfile.schoolName || 'المدرسة الحالية',
+              governorate: localProfile.governorate || 'بغداد',
+              subject: localProfile.subject || 'science_primary',
+              tier,
+              tierLabel: tierObj?.labelAr || 'مسجل محلياً',
+              issuedAt: localProfile.registeredAt || now,
+              expiresAt: expires,
+              token: localLicense?.key || 'مسجل عبر الجهاز (نشط)',
+              priceIqd: TIER_PRICES_IQD[tier] || 25000,
+              isLocalProfile: true,
+              status: localLicense ? 'active' : (localTrial.isExpired ? 'expired' : 'trial'),
+            };
+
+            const updated = [record, ...prev];
+            localStorage.setItem(STORAGE_KEY_LEDGER, JSON.stringify(updated));
+            return updated;
+          }
+          return prev;
+        });
+      }
+    } catch (e) {
+      console.warn('Auto-sync teacher profile into admin ledger failed:', e);
+    }
   }, []);
 
   const saveLedger = (records: IssuedLicenseRecord[]) => {
@@ -191,6 +249,97 @@ export const AdminDashboard: React.FC = () => {
     const cleanPhone = record.phone.replace(/\D/g, '').replace(/^0/, '964');
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
+  };
+
+  const handleAddNewSubscriberManual = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubPhone.trim() || !newSubName.trim()) {
+      showToast({ message: 'يرجى إدخال اسم المعلم ورقم هاتفه', type: 'error' });
+      return;
+    }
+
+    try {
+      const key = await authService.generateKeyForTeacher(
+        newSubPhone.trim(),
+        newSubTier,
+        newSubName.trim()
+      );
+
+      const tierObj = SUBSCRIPTION_TIERS.find((t) => t.id === newSubTier);
+      const days = tierObj?.durationDays || 365;
+      const now = Date.now();
+      const expires = now + days * 24 * 60 * 60 * 1000;
+
+      const record: IssuedLicenseRecord = {
+        id: `manual_sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        teacherName: newSubName.trim(),
+        phone: newSubPhone.trim(),
+        schoolName: newSubSchool.trim() || 'غير محدد',
+        governorate: newSubGov,
+        tier: newSubTier,
+        tierLabel: tierObj?.labelAr || 'اشتراك سنوي',
+        issuedAt: now,
+        expiresAt: expires,
+        token: key,
+        priceIqd: TIER_PRICES_IQD[newSubTier] || 25000,
+        status: 'active',
+      };
+
+      const updated = [record, ...ledger];
+      saveLedger(updated);
+      setIsAddModalOpen(false);
+      setNewSubName('');
+      setNewSubPhone('');
+      setNewSubSchool('');
+
+      showToast({ message: `تم تسجيل المعلم (${record.teacherName}) وإصدار ترخيصه بنجاح!`, type: 'success' });
+    } catch (err: any) {
+      showToast({ message: `تعذر تسجيل المشترك: ${err?.message || ''}`, type: 'error' });
+    }
+  };
+
+  const handleExportLedger = () => {
+    try {
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(ledger, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('download', `techeeer_subscribers_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast({ message: 'تم تصدير سجل المشتركين بنجاح كملف نسخة احتياطية!', type: 'success' });
+    } catch {
+      showToast({ message: 'تعذر تصدير السجل', type: 'error' });
+    }
+  };
+
+  const handleImportLedger = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const imported = JSON.parse(content);
+        if (Array.isArray(imported)) {
+          const map = new Map<string, IssuedLicenseRecord>();
+          for (const item of [...imported, ...ledger]) {
+            if (item.phone) map.set(item.phone, item);
+            else if (item.id) map.set(item.id, item);
+          }
+          const merged = Array.from(map.values());
+          saveLedger(merged);
+          showToast({ message: `تم استيراد ودمج ${imported.length} مشتركاً بنجاح!`, type: 'success' });
+        } else {
+          showToast({ message: 'تنسيق ملف النسخة الاحتياطية غير متطابق', type: 'error' });
+        }
+      } catch {
+        showToast({ message: 'فشل قراءة الملف', type: 'error' });
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const handleDeleteRecord = (id: string) => {
@@ -574,29 +723,72 @@ export const AdminDashboard: React.FC = () => {
 
             {/* TAB 2: Subscribers Ledger */}
             {adminTab === 'subscribers' && (
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-base font-extrabold text-white">سجل المشتركين والتراخيص المحفوظة</h2>
-                    <p className="text-xs text-slate-400">
-                      قائمة بجميع المعلمين الذين تم إصدار تراخيص لهم مع إمكانية البحث وإعادة إرسال الكود
+                    <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+                      <span>سجل المشتركين والتراخيص المحفوظة</span>
+                      <span className="text-xs font-mono bg-teal-900/60 text-teal-300 border border-teal-700/50 px-2 py-0.5 rounded-full">
+                        {filteredLedger.length} مشترك
+                      </span>
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      قائمة بجميع المعلمين المسجلين والتراخيص الصادرة مع إمكانية التصدير، الاستيراد، والإضافة المباشرة
                     </p>
                   </div>
 
-                  <div className="w-full sm:w-64">
-                    <input
-                      type="text"
-                      placeholder="بحث بالاسم أو رقم الهاتف..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:border-teal-500 focus:outline-none"
-                    />
+                  {/* Top Action Buttons */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddModalOpen(true)}
+                      className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-teal-900/20 cursor-pointer"
+                    >
+                      <span>➕</span>
+                      <span>تسجيل مشترك يدوياً</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExportLedger}
+                      className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 cursor-pointer"
+                      title="تصدير السجل كملف JSON لنسخه احتياطياً ونقله لأي جهاز"
+                    >
+                      <span>📤</span>
+                      <span>تصدير نسخة احتياطية</span>
+                    </button>
+
+                    <label className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center gap-1.5 border border-slate-700 cursor-pointer">
+                      <span>📥</span>
+                      <span>استيراد نسخة</span>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={handleImportLedger}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
                 </div>
 
+                {/* Search Bar */}
+                <div className="w-full">
+                  <input
+                    type="text"
+                    placeholder="بحث سريع باسم المعلم، رقم الهاتف، أو المدرسة..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:border-teal-500 focus:outline-none"
+                  />
+                </div>
+
                 {filteredLedger.length === 0 ? (
-                  <div className="p-12 text-center text-slate-500 border border-dashed border-slate-800 rounded-2xl">
-                    لا توجد تراخيص مسجلة مطابقة حتى الآن.
+                  <div className="p-12 text-center text-slate-500 border border-dashed border-slate-800 rounded-2xl space-y-2">
+                    <span className="text-4xl block opacity-40">👥</span>
+                    <p className="text-sm font-bold text-slate-400">لا يوجد مشتركون مسجلون مطابقون حتى الآن</p>
+                    <p className="text-xs">
+                      يمكنك الضغط على «تسجيل مشترك يدوياً» بالأعلى أو توليد كود ترخيص من التبويب الأول
+                    </p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto rounded-2xl border border-slate-800">
@@ -605,7 +797,8 @@ export const AdminDashboard: React.FC = () => {
                         <tr>
                           <th className="p-3">المعلم</th>
                           <th className="p-3">رقم الهاتف</th>
-                          <th className="p-3">الباقة</th>
+                          <th className="p-3">المدرسة والمحافظة</th>
+                          <th className="p-3">نوع الباقة</th>
                           <th className="p-3">تاريخ الإصدار</th>
                           <th className="p-3">ينتهي في</th>
                           <th className="p-3">الحالة</th>
@@ -617,9 +810,23 @@ export const AdminDashboard: React.FC = () => {
                           const isExpired = row.expiresAt < Date.now();
                           return (
                             <tr key={row.id} className="hover:bg-slate-950/40 transition">
-                              <td className="p-3 font-bold text-white">{row.teacherName}</td>
-                              <td className="p-3 font-mono">{row.phone}</td>
-                              <td className="p-3">{row.tierLabel}</td>
+                              <td className="p-3 font-bold text-white">
+                                <div className="flex items-center gap-1.5">
+                                  <span>{row.teacherName}</span>
+                                  {row.isLocalProfile && (
+                                    <span className="text-[10px] bg-teal-900/60 text-teal-300 border border-teal-700/40 px-1.5 py-0.2 rounded font-mono">
+                                      هذا الجهاز
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-3 font-mono text-teal-300">{row.phone}</td>
+                              <td className="p-3 text-slate-400">
+                                {row.schoolName || 'المدرسة'} ({row.governorate || 'العراق'})
+                              </td>
+                              <td className="p-3">
+                                <span className="font-medium">{row.tierLabel}</span>
+                              </td>
                               <td className="p-3 text-slate-400">
                                 {new Date(row.issuedAt).toLocaleDateString('ar-IQ')}
                               </td>
@@ -628,12 +835,16 @@ export const AdminDashboard: React.FC = () => {
                               </td>
                               <td className="p-3">
                                 {isExpired ? (
-                                  <span className="px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 text-[10px] font-bold">
+                                  <span className="px-2.5 py-1 rounded-full bg-rose-950/80 text-rose-300 border border-rose-800/50 text-[10px] font-bold">
                                     منتهي
                                   </span>
+                                ) : row.status === 'trial' ? (
+                                  <span className="px-2.5 py-1 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/50 text-[10px] font-bold">
+                                    تجربة مجانية
+                                  </span>
                                 ) : (
-                                  <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 text-[10px] font-bold">
-                                    نشط
+                                  <span className="px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/50 text-[10px] font-bold">
+                                    نشط ومفعل
                                   </span>
                                 )}
                               </td>
@@ -670,6 +881,112 @@ export const AdminDashboard: React.FC = () => {
                         })}
                       </tbody>
                     </table>
+                  </div>
+                )}
+
+                {/* Manual Add Subscriber Modal */}
+                {isAddModalOpen && (
+                  <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">➕</span>
+                          <h3 className="text-sm font-bold text-white">تسجيل مشترك جديد وإصدار كود تفعيل فوري</h3>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddModalOpen(false)}
+                          className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center justify-center"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleAddNewSubscriberManual} className="space-y-3.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-1">اسم المعلم: *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="مثال: الأستاذ أحمد علي"
+                              value={newSubName}
+                              onChange={(e) => setNewSubName(e.target.value)}
+                              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-teal-500 focus:outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-1">رقم الهاتف: *</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="مثال: 07701234567"
+                              value={newSubPhone}
+                              onChange={(e) => setNewSubPhone(e.target.value)}
+                              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-teal-500 focus:outline-none font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-1">المدرسة: (اختياري)</label>
+                            <input
+                              type="text"
+                              placeholder="مثال: ثانوية المتميزين"
+                              value={newSubSchool}
+                              onChange={(e) => setNewSubSchool(e.target.value)}
+                              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-teal-500 focus:outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-300 mb-1">المحافظة:</label>
+                            <select
+                              value={newSubGov}
+                              onChange={(e) => setNewSubGov(e.target.value)}
+                              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-teal-500 focus:outline-none"
+                            >
+                              {['بغداد', 'البصرة', 'نينوى', 'أربيل', 'النجف الأشرف', 'كربلاء المقدسة', 'بابل', 'ذي قار', 'ديالى', 'الأنبار', 'كركوك', 'صلاح الدين', 'ميسان', 'واسط', 'الديوانية', 'المثنى', 'دهوك', 'السليمانية'].map(g => (
+                                <option key={g} value={g}>{g}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1">نوع باقة التفعيل:</label>
+                          <select
+                            value={newSubTier}
+                            onChange={(e) => setNewSubTier(e.target.value as SubscriptionTier)}
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:border-teal-500 focus:outline-none"
+                          >
+                            {SUBSCRIPTION_TIERS.map(t => (
+                              <option key={t.id} value={t.id}>
+                                {t.labelAr} ({TIER_PRICES_IQD[t.id]?.toLocaleString()} د.ع) - {t.durationDays} يوم
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                          <button
+                            type="button"
+                            onClick={() => setIsAddModalOpen(false)}
+                            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+                          >
+                            إلغاء
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md shadow-teal-900/20 cursor-pointer"
+                          >
+                            تسجيل وإصدار الترخيص فوراً ⚡
+                          </button>
+                        </div>
+                      </form>
+                    </div>
                   </div>
                 )}
               </div>
