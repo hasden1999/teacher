@@ -254,32 +254,7 @@ describe('Adversarial Challenger M2 Suite: Injection & Privacy Hardening', () =>
   // TASK 3: OCR Modal Privacy & Secret Storage Test
   // =========================================================================
   describe('3. Adversarial OCR Modal Privacy & Storage Verification', () => {
-    it('migrates legacy API key from localStorage to sessionStorage and deletes from localStorage on mount', async () => {
-      const sampleKey = 'AIzaSy_LEGACY_TEST_SECRET_12345';
-      localStorage.setItem('techeeer_gemini_api_key', sampleKey);
-      sessionStorage.clear();
-
-      await act(async () => {
-        root.render(
-          React.createElement(
-            ToastProvider,
-            null,
-            React.createElement(HandwritingOcrModal, {
-              isOpen: true,
-              onClose: () => {},
-              onApplyQuestions: () => {},
-            })
-          )
-        );
-      });
-
-      // Verify localStorage is immediately wiped of the secret
-      expect(localStorage.getItem('techeeer_gemini_api_key')).toBeNull();
-      // Verify key was safely migrated to sessionStorage
-      expect(sessionStorage.getItem('techeeer_gemini_api_key')).toBe(sampleKey);
-    });
-
-    it('never writes newly entered Gemini API key into localStorage', async () => {
+    it('never exposes Gemini API key inputs or settings buttons to regular teachers (100% centralized admin key)', async () => {
       localStorage.clear();
       sessionStorage.clear();
 
@@ -297,54 +272,18 @@ describe('Adversarial Challenger M2 Suite: Injection & Privacy Hardening', () =>
         );
       });
 
-      // Open settings by clicking button
+      // Verify NO settings button or API key inputs exist for the regular user
       const buttons = Array.from(container.querySelectorAll('button'));
       const settingsBtn = buttons.find((b) => b.textContent?.includes('إعدادات Gemini API'));
-      expect(settingsBtn).toBeDefined();
+      expect(settingsBtn).toBeUndefined();
 
-      await act(async () => {
-        settingsBtn?.click();
-      });
+      const input = container.querySelector('input[placeholder*="AIzaSy"]') as HTMLInputElement;
+      expect(input).toBeNull();
 
-      // Find API key input
-      const input = container.querySelector('input[placeholder="AIzaSy..."]') as HTMLInputElement;
-      expect(input).not.toBeNull();
-
-      const newSecret = 'AIzaSy_NEW_USER_KEY_98765';
-      await act(async () => {
-        input.value = newSecret;
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-      });
-
-      // Ensure key is NOT in localStorage
-      expect(localStorage.getItem('techeeer_gemini_api_key')).toBeNull();
-    });
-
-    it('renders the mandatory Arabic privacy disclaimer banner with prominent warning', async () => {
-      await act(async () => {
-        root.render(
-          React.createElement(
-            ToastProvider,
-            null,
-            React.createElement(HandwritingOcrModal, {
-              isOpen: true,
-              onClose: () => {},
-              onApplyQuestions: () => {},
-            })
-          )
-        );
-      });
-
+      // Verify Gemini Vision 2.5 badge is present
       const text = container.textContent || '';
-      // Verify disclaimer title
-      expect(text).toContain('تنبيه الخصوصية والأمان لمعالجة أوراق الامتحانات:');
-
-      // Verify privacy text explicitly covers Google cloud, student personal data, local fallback, and session storage
-      expect(text).toContain('خوادم Google');
-      expect(text).toContain('أسماء وبيانات الطلاب الشخصية');
-      expect(text).toContain('محرك الاستخراج المحلي');
-      expect(text).toContain('Session Storage');
+      expect(text).toContain('Gemini Vision 2.5');
+      expect(text).toContain('استخراج الأسئلة من خط اليد');
     });
 
     it('does not render modal when isOpen is false', async () => {

@@ -18,6 +18,12 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 // 2. Clean up outdated caches and precache manifest bundle
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST || []);

@@ -243,7 +243,8 @@ export const VoiceGradeEntryModal: React.FC<VoiceGradeEntryModalProps> = ({
 
     try {
       const base64Audio = await blobToBase64(blob);
-      const mimeType = blob.type || 'audio/webm';
+      const rawMime = blob.type || 'audio/webm';
+      const cleanMimeType = rawMime.split(';')[0].trim().toLowerCase() || 'audio/webm';
 
       const studentsRosterSummary = students.map((s) => ({
         id: s.id,
@@ -301,7 +302,7 @@ ${JSON.stringify(studentsRosterSummary, null, 2)}
                       { text: systemPrompt },
                       {
                         inline_data: {
-                          mime_type: mimeType,
+                          mime_type: cleanMimeType,
                           data: base64Audio,
                         },
                       },

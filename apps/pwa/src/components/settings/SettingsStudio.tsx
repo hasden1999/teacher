@@ -390,6 +390,47 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
         </div>
       </div>
 
+      {/* 4. PWA Cache Management & Instant Update */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 flex items-center gap-2">
+              <span>🔄</span>
+              <span>تحديث المنصة والتخزين المؤقت (PWA Cache)</span>
+              <span className="text-[10px] bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 font-bold px-2 py-0.5 rounded-full">
+                إصدار v2.5 AI المركزي
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              إذا قمت بتحديث الموقع على فيرسل ولم تظهر التغييرات فوراً على هاتفك أو حاسوبك بسبب كاش PWA، اضغط هنا لتنظيف التخزين المؤقت وجلب أحدث كود فوراً.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                if ('serviceWorker' in navigator) {
+                  const regs = await navigator.serviceWorker.getRegistrations();
+                  for (const r of regs) await r.unregister();
+                }
+                if ('caches' in window) {
+                  const keys = await caches.keys();
+                  for (const k of keys) await caches.delete(k);
+                }
+                showToast({ message: 'تم مسح التخزين المؤقت بنجاح! جاري تحميل النسخة الأحدث...', type: 'success' });
+                setTimeout(() => window.location.reload(), 600);
+              } catch {
+                window.location.reload();
+              }
+            }}
+            className="px-4 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs shadow-sm transition flex items-center gap-2 cursor-pointer active:scale-95"
+          >
+            <span>🔄</span>
+            <span>مسح الذاكرة المؤقتة والتحديث الآن</span>
+          </button>
+        </div>
+      </div>
+
       {/* Modals */}
       <ActivationGateModal
         isOpen={isActivationModalOpen}

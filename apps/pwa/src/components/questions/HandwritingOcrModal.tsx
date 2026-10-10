@@ -32,6 +32,51 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Optimize large images captured from mobile cameras (scale to <= 2048px, high quality JPEG)
+  const optimizeImageForOcr = (dataUrl: string): Promise<{ base64: string; mimeType: string }> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 2048;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          const optimizedUrl = canvas.toDataURL('image/jpeg', 0.88);
+          const base64 = optimizedUrl.split(',')[1];
+          resolve({ base64, mimeType: 'image/jpeg' });
+          return;
+        }
+        const rawBase64 = dataUrl.split(',')[1];
+        const rawMime = (dataUrl.split(';')[0].split(':')[1] || 'image/jpeg').split(';')[0].trim();
+        resolve({ base64: rawBase64, mimeType: rawMime });
+      };
+      img.onerror = () => {
+        const rawBase64 = dataUrl.split(',')[1];
+        const rawMime = (dataUrl.split(';')[0].split(':')[1] || 'image/jpeg').split(';')[0].trim();
+        resolve({ base64: rawBase64, mimeType: rawMime });
+      };
+      img.src = dataUrl;
+    });
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -69,8 +114,8 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
         return;
       }
 
-      const base64Data = selectedImage.split(',')[1];
-      const mimeType = selectedImage.split(';')[0].split(':')[1] || 'image/jpeg';
+      // Optimize image before sending to avoid memory/payload issues on mobile
+      const { base64: base64Data, mimeType } = await optimizeImageForOcr(selectedImage);
 
       const promptText = `أنت نظام ذكاء اصطناعي فائق الدقة متخصص في قراءة واستخراج الأسئلة المكتوبة بخط اليد من أوراق الامتحانات المدرسية العراقية لمادة (${subjectName}).
 
