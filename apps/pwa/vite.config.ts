@@ -42,6 +42,17 @@ export default defineConfig({
     },
   },
   build: {
-    chunkSizeWarningLimit: 2000,
+    target: 'esnext',
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('node_modules/katex')) return 'katex';
+          if (id.includes('node_modules/mathlive')) return 'mathlive';
+          if (id.includes('node_modules/pdf-lib')) return 'pdflib';
+          if (id.includes('node_modules/modern-screenshot')) return 'shot';
+        },
+      },
+    },
   },
 });

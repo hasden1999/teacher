@@ -1,21 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { ToastProvider } from './components/common/Toast.js';
 import { InstallGate } from './components/common/InstallGate.js';
 import { InAppEscapeModal } from './components/common/InAppEscapeModal.js';
 import { AppShell } from './components/layout/AppShell.js';
 import type { NavTabId } from './components/layout/DesktopSidebar.js';
-import { GradebookStudio } from './components/gradebook/GradebookStudio.js';
-import { ExamEditor } from './components/questions/ExamEditor.js';
-import { PlansStudio } from './components/plans/PlansStudio.js';
-import { ClassesStudio } from './components/classes/ClassesStudio.js';
-import { BackupStudio } from './components/backups/BackupStudio.js';
-import { SettingsStudio } from './components/settings/SettingsStudio.js';
 import { TeacherLoginModal } from './components/auth/TeacherLoginModal.js';
 import { ActivationGateModal } from './components/auth/ActivationGateModal.js';
-import { AdminDashboard } from './components/admin/AdminDashboard.js';
 import { authService, TeacherAccount } from './services/authService.js';
 import { getSubjectById } from '@techeeer/content';
 import type { TeacherProfile } from '@techeeer/content';
+
+const GradebookStudio = lazy(() =>
+  import('./components/gradebook/GradebookStudio.js').then((m) => ({ default: m.GradebookStudio }))
+);
+const ExamEditor = lazy(() =>
+  import('./components/questions/ExamEditor.js').then((m) => ({ default: m.ExamEditor }))
+);
+const PlansStudio = lazy(() =>
+  import('./components/plans/PlansStudio.js').then((m) => ({ default: m.PlansStudio }))
+);
+const ClassesStudio = lazy(() =>
+  import('./components/classes/ClassesStudio.js').then((m) => ({ default: m.ClassesStudio }))
+);
+const BackupStudio = lazy(() =>
+  import('./components/backups/BackupStudio.js').then((m) => ({ default: m.BackupStudio }))
+);
+const SettingsStudio = lazy(() =>
+  import('./components/settings/SettingsStudio.js').then((m) => ({ default: m.SettingsStudio }))
+);
+const AdminDashboard = lazy(() =>
+  import('./components/admin/AdminDashboard.js').then((m) => ({ default: m.AdminDashboard }))
+);
 
 export const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTabId>('gradebook');
@@ -98,7 +113,11 @@ export const AppContent: React.FC = () => {
   }, [isAdminRoute]);
 
   if (isAdminRoute) {
-    return <AdminDashboard />;
+    return (
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-300 font-tajawal text-sm">جاري تحميل لوحة الإدارة...</div>}>
+        <AdminDashboard />
+      </Suspense>
+    );
   }
 
   const handleTeacherRegistered = (acc: TeacherAccount) => {
@@ -129,32 +148,34 @@ export const AppContent: React.FC = () => {
         onOpenActivation={() => setIsActivationModalOpen(true)}
         onOpenProfile={() => setIsLoginModalOpen(true)}
       >
-        {activeTab === 'gradebook' && <GradebookStudio />}
+        <Suspense fallback={<div className="p-12 text-center text-slate-400 font-tajawal text-sm">جاري التحميل...</div>}>
+          {activeTab === 'gradebook' && <GradebookStudio />}
 
-        {activeTab === 'questions' && (
-          <div className="h-[calc(100vh-130px)] min-h-[650px] flex flex-col">
-            <ExamEditor
-              teacherSubject={subjectNameAr}
-              teacherGrade={teacher.grade}
+          {activeTab === 'questions' && (
+            <div className="h-[calc(100vh-130px)] min-h-[650px] flex flex-col">
+              <ExamEditor
+                teacherSubject={subjectNameAr}
+                teacherGrade={teacher.grade}
+              />
+            </div>
+          )}
+
+          {activeTab === 'plans' && <PlansStudio teacher={teacher} />}
+
+          {activeTab === 'classes' && <ClassesStudio />}
+
+          {activeTab === 'backups' && <BackupStudio />}
+
+          {activeTab === 'settings' && (
+            <SettingsStudio
+              teacher={teacher}
+              onTeacherChange={(updated) => {
+                setTeacher(updated);
+                setTeacherAccount(authService.getTeacherProfile());
+              }}
             />
-          </div>
-        )}
-
-        {activeTab === 'plans' && <PlansStudio teacher={teacher} />}
-
-        {activeTab === 'classes' && <ClassesStudio />}
-
-        {activeTab === 'backups' && <BackupStudio />}
-
-        {activeTab === 'settings' && (
-          <SettingsStudio
-            teacher={teacher}
-            onTeacherChange={(updated) => {
-              setTeacher(updated);
-              setTeacherAccount(authService.getTeacherProfile());
-            }}
-          />
-        )}
+          )}
+        </Suspense>
       </AppShell>
 
       {/* Teacher Onboarding & Profile Modal */}

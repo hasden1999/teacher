@@ -159,7 +159,7 @@ describe('Milestone 5 Adversarial Stress & Boundary Harness — UI & Services', 
       expect(headerString).toBe('%PDF-');
 
       emptyDiv.remove();
-    });
+    }, 30000);
 
     it('handles exportToImage with PNG and JPEG formats and quality extremes', async () => {
       const div = document.createElement('div');

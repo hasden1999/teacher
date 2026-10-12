@@ -1,4 +1,3 @@
-import { PDFDocument } from 'pdf-lib';
 import { domToPng, domToJpeg } from 'modern-screenshot';
 import { type ExamPaperAST, toWesternNumerals } from '@techeeer/core';
 import type { PdfExportOptions, ImageExportOptions } from '../types/export.js';
@@ -35,6 +34,8 @@ export class ExamExportService {
   ): Promise<Blob> {
     const scale = options?.scale ?? 2;
     let pngDataUrl: string;
+
+    const { PDFDocument } = await import('pdf-lib');
 
     try {
       pngDataUrl = await domToPng(element, { scale, quality: 0.95 });

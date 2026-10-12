@@ -92,11 +92,25 @@ export const VirtualGradebookTable: React.FC<VirtualGradebookTableProps> = ({
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  // Handle scroll events with requestAnimationFrame throttling
+  const rafIdRef = useRef<number | null>(null);
+
+  // Handle scroll events with real requestAnimationFrame throttling
   const handleScroll = useCallback(() => {
-    if (containerRef.current) {
-      setScrollTop(containerRef.current.scrollTop);
-    }
+    if (rafIdRef.current !== null) return;
+    rafIdRef.current = requestAnimationFrame(() => {
+      if (containerRef.current) {
+        setScrollTop(containerRef.current.scrollTop);
+      }
+      rafIdRef.current = null;
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
   }, []);
 
   // Calculate virtual window boundaries
@@ -326,7 +340,7 @@ export const VirtualGradebookTable: React.FC<VirtualGradebookTableProps> = ({
         <div className="sticky top-0 z-30 flex bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 min-w-max">
           {/* Top-Right Sticky Intersection Cell: Student Name Header */}
           <div
-            className="shrink-0 sticky end-0 right-0 z-40 flex items-center justify-between px-3 bg-slate-100 dark:bg-slate-800 border-s border-slate-200 dark:border-slate-700 shadow-sm"
+            className="shrink-0 sticky end-0 z-40 flex items-center justify-between px-3 bg-slate-100 dark:bg-slate-800 border-s border-slate-200 dark:border-slate-700 shadow-sm"
             style={{ width: '220px', minWidth: '220px', maxWidth: '220px', height: `${rowHeight}px` }}
           >
             <span className="w-8 text-center text-slate-400">ت</span>
@@ -420,7 +434,7 @@ export const VirtualGradebookTable: React.FC<VirtualGradebookTableProps> = ({
                     {/* Sticky Student Name Cell (RTL border-s) */}
                     <div
                       onClick={() => onStudentSelect?.(student)}
-                      className={`shrink-0 sticky end-0 right-0 z-20 flex items-center px-3 border-s border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors ${
+                      className={`shrink-0 sticky end-0 z-20 flex items-center px-3 border-s border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-100/70 dark:hover:bg-slate-800/60 transition-colors ${
                         isCurrentActiveStudent
                           ? 'bg-teal-50 dark:bg-slate-900'
                           : 'bg-white dark:bg-slate-900'

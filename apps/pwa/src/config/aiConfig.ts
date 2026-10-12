@@ -4,12 +4,9 @@
  * Only the Platform Admin (via /#admin) can configure or override this key.
  */
 
-// Central master fallback key for the platform
-const CENTRAL_KEY_SEGMENTS = ['AQ.', 'Ab8RN6KIGe7Thu7VG', 'tairJ2crcQK0Nco4', 'j8jD6cH5-FOXTGRKg'];
-
+// Central AI configuration relies on environment variable or Admin portal override (/ #admin)
 export const DEFAULT_CENTRAL_GEMINI_API_KEY: string =
-  ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) ||
-  CENTRAL_KEY_SEGMENTS.join('');
+  ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || '';
 
 export const STORAGE_KEY_GEMINI_API_KEY = 'techeeer_central_gemini_key';
 

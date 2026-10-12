@@ -106,7 +106,7 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
   return (
     <div
       dir="rtl"
-      className={`text-slate-900 dark:text-slate-100 leading-relaxed text-right ${fontClass} ${sizeClass} ${className}`}
+      className={`text-slate-900 dark:text-slate-100 leading-relaxed text-start ${fontClass} ${sizeClass} ${className}`}
     >
       {tokens.map((token, idx) => {
         if (token.type === 'text') {

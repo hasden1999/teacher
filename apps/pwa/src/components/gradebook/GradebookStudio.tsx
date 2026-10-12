@@ -3,13 +3,14 @@
  * Connects VirtualGradebookTable, BatchFillModal, StudentCardModal, Excel Service, and WhatsApp Service.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { VirtualGradebookTable } from './VirtualGradebookTable.js';
 import { BatchFillModal } from './BatchFillModal.js';
 import { StudentCardModal } from './StudentCardModal.js';
 import { useBatchRollback } from './useBatchRollback.js';
 import { useToast } from '../common/Toast.js';
 import { excelService } from '../../services/excelService.js';
+import { gradebookDbService } from '../../services/gradebookDbService.js';
 import type {
   StudentRowItem,
   GradeColumnDef,
@@ -21,22 +22,22 @@ import { decomposeSimplifiedScore } from '@techeeer/core';
 import { VoiceGradeEntryModal } from './VoiceGradeEntryModal.js';
 import { MobileStudentCardsView } from './MobileStudentCardsView.js';
 
-// Default initial demo dataset (representative Iraqi students roster)
-const INITIAL_DEMO_STUDENTS: StudentRowItem[] = [
-  { id: 'std_01', fullName: 'أحمد علي حسن', rollNumber: 1, gender: 'male', guardianPhone: '07701234567' },
-  { id: 'std_02', fullName: 'كرار حسين مهدي', rollNumber: 2, gender: 'male', guardianPhone: '07801234567' },
-  { id: 'std_03', fullName: 'زينب محمد جعفر', rollNumber: 3, gender: 'female', guardianPhone: '07901234567' },
-  { id: 'std_04', fullName: 'فاطمة حيدر كاظم', rollNumber: 4, gender: 'female', guardianPhone: '07501234567' },
-  { id: 'std_05', fullName: 'علي مصطفى جاسم', rollNumber: 5, gender: 'male', guardianPhone: '07712345678' },
-  { id: 'std_06', fullName: 'حسين علاء رضا', rollNumber: 6, gender: 'male', guardianPhone: '07812345678' },
-  { id: 'std_07', fullName: 'مريم سعد عبد الزهرة', rollNumber: 7, gender: 'female', guardianPhone: '07912345678' },
-  { id: 'std_08', fullName: 'يوسف رعد فاضل', rollNumber: 8, gender: 'male', guardianPhone: '07512345678' },
-  { id: 'std_09', fullName: 'عباس سلام نوري', rollNumber: 9, gender: 'male', guardianPhone: '07723456789' },
-  { id: 'std_10', fullName: 'زهراء قاسم جواد', rollNumber: 10, gender: 'female', guardianPhone: '07823456789' },
+// Sample Seed for empty initial run (clearly designated as SAMPLE_SEED)
+export const SAMPLE_SEED_STUDENTS: StudentRowItem[] = [
+  { id: 'std_demo_01', fullName: 'أحمد علي حسن', rollNumber: 1, gender: 'male', guardianPhone: '07701234567' },
+  { id: 'std_demo_02', fullName: 'كرار حسين مهدي', rollNumber: 2, gender: 'male', guardianPhone: '07801234567' },
+  { id: 'std_demo_03', fullName: 'زينب محمد جعفر', rollNumber: 3, gender: 'female', guardianPhone: '07901234567' },
+  { id: 'std_demo_04', fullName: 'فاطمة حيدر كاظم', rollNumber: 4, gender: 'female', guardianPhone: '07501234567' },
+  { id: 'std_demo_05', fullName: 'علي مصطفى جاسم', rollNumber: 5, gender: 'male', guardianPhone: '07712345678' },
+  { id: 'std_demo_06', fullName: 'حسين علاء رضا', rollNumber: 6, gender: 'male', guardianPhone: '07812345678' },
+  { id: 'std_demo_07', fullName: 'مريم سعد عبد الزهرة', rollNumber: 7, gender: 'female', guardianPhone: '07912345678' },
+  { id: 'std_demo_08', fullName: 'يوسف رعد فاضل', rollNumber: 8, gender: 'male', guardianPhone: '07512345678' },
+  { id: 'std_demo_09', fullName: 'عباس سلام نوري', rollNumber: 9, gender: 'male', guardianPhone: '07723456789' },
+  { id: 'std_demo_10', fullName: 'زهراء قاسم جواد', rollNumber: 10, gender: 'female', guardianPhone: '07823456789' },
 ];
 
-const INITIAL_DEMO_GRADES: GradebookMatrix = {
-  std_01: {
+export const SAMPLE_SEED_GRADES: GradebookMatrix = {
+  std_demo_01: {
     component_oral: { score: 18, isAbsent: false },
     component_written: { score: 19, isAbsent: false },
     component_homework: { score: 20, isAbsent: false },
@@ -49,7 +50,7 @@ const INITIAL_DEMO_GRADES: GradebookMatrix = {
     annual_effort: { score: 92, isAbsent: false },
     final_status: { score: 92, isAbsent: false },
   },
-  std_02: {
+  std_demo_02: {
     component_oral: { score: 12, isAbsent: false },
     component_written: { score: 10, isAbsent: false },
     component_homework: { score: 14, isAbsent: false },
@@ -62,7 +63,7 @@ const INITIAL_DEMO_GRADES: GradebookMatrix = {
     annual_effort: { score: 47, isAbsent: false },
     final_status: { score: 47, isAbsent: false },
   },
-  std_03: {
+  std_demo_03: {
     component_oral: { score: 20, isAbsent: false },
     component_written: { score: 20, isAbsent: false },
     component_homework: { score: 20, isAbsent: false },
@@ -78,12 +79,25 @@ const INITIAL_DEMO_GRADES: GradebookMatrix = {
 };
 
 export const GradebookStudio: React.FC = () => {
-  const [students] = useState<StudentRowItem[]>(INITIAL_DEMO_STUDENTS);
-  const [grades, setGrades] = useState<GradebookMatrix>(INITIAL_DEMO_GRADES);
+  const [students, setStudents] = useState<StudentRowItem[]>([]);
+  const [grades, setGrades] = useState<GradebookMatrix>({});
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeMode, setActiveMode] = useState<'detailed' | 'simplified'>('detailed');
-  const [activeDivision, setActiveDivision] = useState<string>('شعبة أ');
+  const [activeDivision, setActiveDivision] = useState<string>(() => {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('techeeer_active_division') || 'شعبة أ';
+    }
+    return 'شعبة أ';
+  });
   const [activeMobileColumnKey, setActiveMobileColumnKey] = useState<string>('component_oral');
   const [viewType, setViewType] = useState<'cards' | 'table'>('cards');
+
+  const divisionIdMap: Record<string, string> = {
+    'شعبة أ': 'div_1',
+    'شعبة ب': 'div_2',
+    'شعبة ج': 'div_3',
+  };
+  const divisionId = divisionIdMap[activeDivision] || 'div_1';
 
   // Modals state
   const [batchModalColumn, setBatchModalColumn] = useState<GradeColumnDef | null>(null);
@@ -91,6 +105,86 @@ export const GradebookStudio: React.FC = () => {
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState<boolean>(false);
 
   const { showToast } = useToast();
+
+  const loadRosterData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      await gradebookDbService.ensureDefaultStructure();
+      if (divisionId === 'div_1') {
+        await gradebookDbService.seedSampleStudentsIfEmpty(
+          'div_1',
+          SAMPLE_SEED_STUDENTS.map((s) => ({
+            id: s.id,
+            division_id: 'div_1',
+            full_name: s.fullName,
+            gender: s.gender || 'male',
+            roll_number: s.rollNumber,
+            guardian_phone: s.guardianPhone || null,
+            notes: null,
+            is_active: 1,
+          })),
+          SAMPLE_SEED_GRADES
+        );
+      }
+
+      const dbStudents = await gradebookDbService.getStudentsByDivision(divisionId, true);
+      const dbMatrix = await gradebookDbService.loadMatrix(divisionId);
+
+      setStudents(
+        dbStudents.map((s) => ({
+          id: s.id,
+          fullName: s.full_name,
+          rollNumber: s.roll_number,
+          gender: s.gender,
+          guardianPhone: s.guardian_phone || undefined,
+          notes: s.notes || undefined,
+        }))
+      );
+      setGrades(dbMatrix);
+    } catch (err: any) {
+      console.warn('Failed to load gradebook from SQLite:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [divisionId]);
+
+  useEffect(() => {
+    loadRosterData();
+  }, [loadRosterData]);
+
+  // Synchronize on focus/storage in case students were modified in ClassesStudio
+  useEffect(() => {
+    const handleSync = () => {
+      const storedDiv = localStorage.getItem('techeeer_active_division');
+      if (storedDiv && storedDiv !== activeDivision) {
+        setActiveDivision(storedDiv);
+      } else {
+        loadRosterData();
+      }
+    };
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('focus', handleSync);
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('focus', handleSync);
+    };
+  }, [activeDivision, loadRosterData]);
+
+  const handleDivisionChange = (newDiv: string) => {
+    setActiveDivision(newDiv);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('techeeer_active_division', newDiv);
+    }
+  };
+
+  const handleClearSampleData = async () => {
+    if (window.confirm('هل أنت متأكد من مسح البيانات التجريبية والبدء بسجل فارغ؟')) {
+      await gradebookDbService.clearSampleData(divisionId);
+      setStudents([]);
+      setGrades({});
+      showToast({ message: 'تم مسح البيانات التجريبية بنجاح', type: 'info' });
+    }
+  };
 
   const { executeBatchWithUndo } = useBatchRollback({
     onApplyUpdates: (updates) => {
@@ -104,6 +198,9 @@ export const GradebookStudio: React.FC = () => {
               isAbsent: false,
             };
           }
+        });
+        gradebookDbService.persistMatrix(divisionId, next).catch((err) => {
+          console.warn('Failed to persist batch updates:', err);
         });
         return next;
       });
@@ -178,7 +275,11 @@ export const GradebookStudio: React.FC = () => {
         }
       }
 
-      return { ...prev, [studentId]: studentGrades };
+      const nextMatrix = { ...prev, [studentId]: studentGrades };
+      gradebookDbService.persistMatrix(divisionId, nextMatrix).catch((err) => {
+        console.warn('Failed to persist grade:', err);
+      });
+      return nextMatrix;
     });
   };
 
@@ -221,6 +322,9 @@ export const GradebookStudio: React.FC = () => {
         }
 
         next[studentId] = studentGrades;
+      });
+      gradebookDbService.persistMatrix(divisionId, next).catch((err) => {
+        console.warn('Failed to persist voice updates:', err);
       });
       return next;
     });
@@ -267,7 +371,7 @@ export const GradebookStudio: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           <select
             value={activeDivision}
-            onChange={(e) => setActiveDivision(e.target.value)}
+            onChange={(e) => handleDivisionChange(e.target.value)}
             className="min-h-[44px] px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
           >
             <option value="شعبة أ">الخامس العلمي - شعبة أ</option>
@@ -344,36 +448,92 @@ export const GradebookStudio: React.FC = () => {
             <span>📥</span>
             <span>تصدير Excel/CSV</span>
           </button>
+
+          <button
+            type="button"
+            onClick={handleClearSampleData}
+            title="مسح البيانات التجريبية للشعبة الحالية"
+            className="min-h-[44px] px-3 py-1.5 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/40 text-red-700 dark:text-red-400 text-xs font-bold transition flex items-center gap-1"
+          >
+            <span>🗑️</span>
+            <span>مسح البيانات التجريبية</span>
+          </button>
         </div>
       </div>
 
-      {/* Main View: Mobile Cards or Virtual Table */}
-      {viewType === 'cards' ? (
-        <div className="md:hidden">
-          <MobileStudentCardsView
-            students={students}
-            grades={grades}
-            columns={CANONICAL_GRADE_COLUMNS}
-            activeColumnKey={activeMobileColumnKey}
-            onColumnChange={setActiveMobileColumnKey}
-            onGradeChange={handleGradeChange}
-            onStudentSelect={(std) => setSelectedStudentForCard(std)}
-            onOpenVoiceModal={() => setIsVoiceModalOpen(true)}
-          />
+      {/* Main View: Loading State, Empty State, or Data Tables */}
+      {isLoading ? (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-16 flex flex-col items-center justify-center text-slate-500">
+          <span className="text-4xl animate-spin mb-4">⏳</span>
+          <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+            جاري تحميل سجل الدرجات من قاعدة البيانات المحلية...
+          </p>
         </div>
-      ) : null}
+      ) : students.length === 0 ? (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border-2 border-dashed border-slate-300 dark:border-slate-700 p-12 text-center flex flex-col items-center justify-center">
+          <span className="text-5xl mb-4">👥</span>
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-2">
+            لا يوجد طلاب في {activeDivision}
+          </h3>
+          <p className="text-xs text-slate-500 max-w-md mb-6 leading-relaxed">
+            لم يتم العثور على أي طلاب مسجلين في هذه الشعبة. يمكنك استيراد قائمة الطلاب من ملف Excel عبر قسم «الفصول والشعب» أو إعادة تعيين العينة التجريبية.
+          </p>
+          <div className="flex flex-wrap gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                window.location.hash = '#classes';
+              }}
+              className="min-h-[40px] px-4 py-2 bg-teal-800 hover:bg-teal-700 text-white rounded-xl text-xs font-bold transition shadow"
+            >
+              الانتقال لإدارة الفصول والطلاب 📋
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (typeof localStorage !== 'undefined') {
+                  localStorage.removeItem('techeeer_sample_seed_cleared');
+                }
+                await loadRosterData();
+                showToast({ message: 'تم تحميل البيانات التجريبية بنجاح', type: 'success' });
+              }}
+              className="min-h-[40px] px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition"
+            >
+              إعادة تحميل بيانات العينة (Sample Seed)
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Main View: Mobile Cards or Virtual Table */}
+          {viewType === 'cards' ? (
+            <div className="md:hidden">
+              <MobileStudentCardsView
+                students={students}
+                grades={grades}
+                columns={CANONICAL_GRADE_COLUMNS}
+                activeColumnKey={activeMobileColumnKey}
+                onColumnChange={setActiveMobileColumnKey}
+                onGradeChange={handleGradeChange}
+                onStudentSelect={(std) => setSelectedStudentForCard(std)}
+                onOpenVoiceModal={() => setIsVoiceModalOpen(true)}
+              />
+            </div>
+          ) : null}
 
-      <div className={`${viewType === 'cards' ? 'hidden md:block' : 'block'} bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden min-h-[500px]`}>
-        <VirtualGradebookTable
-          students={students}
-          grades={grades}
-          activeMode={activeMode}
-          onModeChange={setActiveMode}
-          onGradeChange={handleGradeChange}
-          onBatchFillRequest={(col) => setBatchModalColumn(col)}
-          onStudentSelect={(std) => setSelectedStudentForCard(std)}
-        />
-      </div>
+          <div className={`${viewType === 'cards' ? 'hidden md:block' : 'block'} bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden min-h-[500px]`}>
+            <VirtualGradebookTable
+              students={students}
+              grades={grades}
+              activeMode={activeMode}
+              onModeChange={setActiveMode}
+              onGradeChange={handleGradeChange}
+              onBatchFillRequest={(col) => setBatchModalColumn(col)}
+              onStudentSelect={(std) => setSelectedStudentForCard(std)}
+            />
+          </div>
+        </>
+      )}
 
       {/* Floating Action Button (FAB) for Instant AI Voice Entry on Mobile */}
       <div className="md:hidden fixed bottom-20 start-4 z-40">

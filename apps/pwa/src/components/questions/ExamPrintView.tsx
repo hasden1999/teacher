@@ -93,10 +93,10 @@ export const ExamPrintView = forwardRef<HTMLDivElement, ExamPrintViewProps>(({
 
         {/* Paper Content Wrapper */}
         <div className="relative z-10 space-y-4">
-          {/* Official 3-Column Ministerial Header */}
+          {/* وزاري ثابت: الترويسة الوزارية الرسمية العراقية المعتمدة (يمين: معلومات الوزارة والمدرسة، وسط: الشعار والعنوان، يسار: المادة والوقت) */}
           <header className="border-b-2 border-slate-900 pb-3">
             <div className="grid grid-cols-3 gap-2 items-center text-center text-xs sm:text-sm">
-              {/* Right Column */}
+              {/* Right Column (وزاري ثابت) */}
               <div className="text-right space-y-0.5 leading-snug">
                 <div className="font-bold">{h.country || 'جمهورية العراق'}</div>
                 <div>{h.ministry || 'وزارة التربية'}</div>

@@ -5,7 +5,7 @@
  * No user API key input required: Fully powered by central platform key managed by Admin.
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from '../common/Toast.js';
 import { getActiveGeminiApiKey } from '../../config/aiConfig.js';
 
@@ -26,6 +26,7 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
   const [fileName, setFileName] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [extractedResult, setExtractedResult] = useState<string>('');
+  const [hasConsent, setHasConsent] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
@@ -77,6 +78,16 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
     });
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isProcessing) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, isProcessing]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -98,6 +109,11 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
   const handleProcessOcr = async () => {
     if (!selectedImage) {
       showToast({ message: 'يرجى التقاط أو رفع صورة ورقة الأسئلة أولاً', type: 'error' });
+      return;
+    }
+
+    if (!hasConsent) {
+      showToast({ message: 'يرجى تأكيد الموافقة على معالجة الصورة بالذكاء الاصطناعي أولاً', type: 'error' });
       return;
     }
 
@@ -242,7 +258,8 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition"
+            aria-label="إغلاق نافذة استخراج الأسئلة"
+            className="min-h-[44px] min-w-[44px] w-11 h-11 rounded-full flex items-center justify-center text-white/90 hover:text-white hover:bg-white/20 active:scale-95 transition cursor-pointer"
           >
             ✕
           </button>
@@ -250,7 +267,7 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
 
         {/* Action Controls Bar */}
         <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <input
               type="file"
               ref={fileInputRef}
@@ -261,7 +278,7 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="min-h-[42px] px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow transition flex items-center gap-2 active:scale-95"
+              className="min-h-[48px] px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow transition flex items-center gap-2 active:scale-95"
             >
               <span>📷</span>
               <span>رفع صورة / التقاط بالكاميرا</span>
@@ -273,13 +290,23 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-700 dark:text-slate-300 font-medium">
+              <input
+                type="checkbox"
+                checked={hasConsent}
+                onChange={(e) => setHasConsent(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+              />
+              <span>أوافق على معالجة صورة الورقة بالذكاء الاصطناعي دون تخزين بيانات شخصية</span>
+            </label>
+
             <button
               type="button"
-              disabled={!selectedImage || isProcessing}
+              disabled={!selectedImage || !hasConsent || isProcessing}
               onClick={handleProcessOcr}
-              className={`min-h-[42px] px-5 py-2 rounded-xl font-extrabold text-xs shadow transition flex items-center gap-2 ${
-                !selectedImage || isProcessing
+              className={`min-h-[48px] px-5 py-2 rounded-xl font-extrabold text-xs shadow transition flex items-center gap-2 ${
+                !selectedImage || !hasConsent || isProcessing
                   ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
                   : 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95 cursor-pointer'
               }`}

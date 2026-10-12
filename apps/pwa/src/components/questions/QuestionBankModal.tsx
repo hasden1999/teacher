@@ -269,6 +269,17 @@ ${topicsList.length > 0 ? topicsList.join('، ') : 'مفردات ومواضيع 
     }, 1200);
   };
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isGeneratingAi) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isGeneratingAi, onClose]);
+
   return (
     <div
       role="dialog"

@@ -1,17 +1,32 @@
 import React from 'react';
 import { NavTabId } from './DesktopSidebar.js';
+import {
+  IconGradebook,
+  IconQuestions,
+  IconPlans,
+  IconClasses,
+  IconSettings,
+} from '../common/Icons.js';
 
 export interface MobileBottomNavProps {
   activeTab: NavTabId;
   onTabChange: (tab: NavTabId) => void;
 }
 
-export const MOBILE_TABS: Array<{ id: NavTabId; label: string; icon: string; badge?: string }> = [
-  { id: 'gradebook', label: 'الدرجات', icon: '📊' },
-  { id: 'questions', label: 'الأسئلة', icon: '📝' },
-  { id: 'plans', label: 'الخطط', icon: '📅' },
-  { id: 'classes', label: 'الصفوف', icon: '👥' },
-  { id: 'settings', label: 'الإعدادات', icon: '⚙️' },
+export interface MobileTabItem {
+  id: NavTabId;
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  isCenter?: boolean;
+}
+
+// Ergonomic 5-Tab Layout: 'gradebook' in the absolute center (index 2) for one-handed thumb reach
+export const MOBILE_TABS: MobileTabItem[] = [
+  { id: 'classes', label: 'الصفوف', icon: IconClasses },
+  { id: 'questions', label: 'الأسئلة', icon: IconQuestions },
+  { id: 'gradebook', label: 'الدرجات', icon: IconGradebook, isCenter: true },
+  { id: 'plans', label: 'الخطط', icon: IconPlans },
+  { id: 'settings', label: 'الإعدادات', icon: IconSettings },
 ];
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChange }) => {
@@ -27,12 +42,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onT
   return (
     <nav
       aria-label="شريط التنقل السفلي"
-      className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-white/92 dark:bg-slate-900/92 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] font-tajawal select-none"
+      className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] font-tajawal select-none"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 6px)' }}
     >
       <div className="grid grid-cols-5 h-16 items-center px-1 max-w-lg mx-auto">
         {MOBILE_TABS.map((tab) => {
           const isActive = activeTab === tab.id;
+          const IconComp = tab.icon;
+
           return (
             <button
               key={tab.id}
@@ -40,30 +57,41 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onT
               onClick={() => handleTabClick(tab.id)}
               aria-current={isActive ? 'page' : undefined}
               aria-label={tab.label}
-              className={`group relative flex flex-col items-center justify-center min-h-[48px] py-1 transition-all duration-150 active:scale-90 cursor-pointer ${
+              className={`group relative flex flex-col items-center justify-center min-h-[48px] py-1 transition-all duration-150 active:scale-90 motion-reduce:transform-none cursor-pointer ${
                 isActive
                   ? 'text-teal-700 dark:text-teal-400 font-extrabold'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-medium'
               }`}
             >
-              {/* Icon Container with subtle background pill when active */}
+              {/* Icon Container with subtle background pill when active & center accent */}
               <div
-                className={`relative flex items-center justify-center w-10 h-7 rounded-full transition-all duration-200 ${
-                  isActive
-                    ? 'bg-teal-100/70 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 scale-105 shadow-xs'
-                    : 'group-hover:bg-slate-100/60 dark:group-hover:bg-slate-800/40'
+                className={`relative flex items-center justify-center transition-all duration-200 ${
+                  tab.isCenter
+                    ? isActive
+                      ? 'w-11 h-8 rounded-full bg-teal-700 text-white shadow-md shadow-teal-700/30 scale-105'
+                      : 'w-10 h-7 rounded-full bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-400 border border-teal-200/60 dark:border-teal-800/60'
+                    : isActive
+                    ? 'w-10 h-7 rounded-full bg-teal-100/70 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 scale-105 shadow-xs'
+                    : 'w-10 h-7 rounded-full group-hover:bg-slate-100/60 dark:group-hover:bg-slate-800/40'
                 }`}
               >
-                <span className="text-lg leading-none">{tab.icon}</span>
+                <IconComp
+                  size={tab.isCenter ? 18 : 17}
+                  className="transition-transform group-active:scale-95 motion-reduce:transform-none"
+                />
               </div>
 
               {/* Label */}
-              <span className="text-[10px] mt-0.5 tracking-tight leading-tight transition-transform">
+              <span
+                className={`text-[10px] mt-0.5 tracking-tight leading-tight transition-transform ${
+                  tab.isCenter && isActive ? 'font-black text-teal-800 dark:text-teal-300' : ''
+                }`}
+              >
                 {tab.label}
               </span>
 
               {/* Bottom active dot indicator */}
-              {isActive && (
+              {isActive && !tab.isCenter && (
                 <span className="absolute bottom-1 w-1 h-1 rounded-full bg-teal-700 dark:bg-teal-400" />
               )}
             </button>

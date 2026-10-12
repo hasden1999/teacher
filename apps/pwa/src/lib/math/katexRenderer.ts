@@ -25,12 +25,21 @@ export function sanitizeHtml(html: string): string {
   });
 }
 
+export const MAX_LATEX_LENGTH = 3000;
+
 /**
  * Renders LaTeX math expression safely with KaTeX and DOMPurify sanitization
  */
 export function renderKatexToString(latex: string, options?: KatexOptions): string {
   if (!latex || !latex.trim()) return '';
   const trimmed = latex.trim();
+
+  // Enforce maximum length limit with graceful rejection
+  if (trimmed.length > MAX_LATEX_LENGTH) {
+    const fallback = `<span class="katex-fallback font-mono text-red-600" dir="ltr">تعبير يتجاوز الحد الأقصى المسموح (${MAX_LATEX_LENGTH} حرف)</span>`;
+    return sanitizeHtml(fallback);
+  }
+
   try {
     const rawHtml = katex.renderToString(trimmed, {
       displayMode: options?.displayMode ?? false,
@@ -38,13 +47,12 @@ export function renderKatexToString(latex: string, options?: KatexOptions): stri
       errorColor: options?.errorColor ?? '#dc2626',
     });
 
-    if (trimmed.length > 5000 && !/[<>&"']|javascript:|href|url|data:|onerror|onload/i.test(trimmed)) {
-      return rawHtml;
-    }
-
-    return sanitizeHtml(rawHtml);
+    // Always sanitize all rendered HTML output - NO length bypasses or unescaped returns
+    const sanitized = sanitizeHtml(rawHtml);
+    return sanitized.replace(/\bon(?:error|load|click)\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, '');
   } catch {
-    const fallback = `<span class="katex-fallback font-mono text-red-600" dir="ltr">${escapeHtml(latex)}</span>`;
+    const safeContent = escapeHtml(trimmed);
+    const fallback = `<span class="katex-fallback font-mono text-red-600" dir="ltr">${safeContent}</span>`;
     return sanitizeHtml(fallback);
   }
 }

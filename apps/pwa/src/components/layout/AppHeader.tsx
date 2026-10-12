@@ -1,5 +1,6 @@
 import React from 'react';
 import { OfflineBadge, DbSyncBadge, DbSyncStatus } from '../common/StatusBadges.js';
+import { IconBadgeCheck, IconHourglass } from '../common/Icons.js';
 
 export interface AppHeaderProps {
   currentSectionTitle: string;
@@ -24,7 +25,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 }) => {
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between h-14 sm:h-16 px-3 sm:px-4 bg-white/92 dark:bg-slate-900/92 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80 font-tajawal select-none transition-all shadow-xs"
+      className="sticky top-0 z-30 flex items-center justify-between h-14 sm:h-16 px-3 sm:px-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80 font-tajawal select-none transition-all shadow-xs"
       style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
     >
       {/* Brand & Section Title */}
@@ -38,39 +39,55 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </span>
         </div>
         <span className="text-slate-300 dark:text-slate-700 hidden md:inline">|</span>
-        <h1 className="text-xs sm:text-sm md:text-base font-extrabold text-slate-800 dark:text-slate-200 truncate max-w-[140px] sm:max-w-[200px]">
+        <h1 className="text-xs sm:text-sm md:text-base font-extrabold text-slate-800 dark:text-slate-200 truncate max-w-[120px] xs:max-w-[160px] sm:max-w-[220px]">
           {currentSectionTitle}
         </h1>
       </div>
 
       {/* Status Badges, Trial Pill & Profile */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-        {/* Trial or Activation Badge */}
+        {/* Trial or Activation Badge - Accessible Touch Target */}
         {onOpenActivation && (
           <button
             type="button"
             onClick={onOpenActivation}
-            className={`min-h-[32px] sm:min-h-[36px] px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 ${
+            aria-label={isActivated ? 'الحساب مفعل برخصة رقمية' : `فترة التجربة: ${trialLabel || 'غير مفعل'}`}
+            className={`min-h-[44px] px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 touch-manipulation ${
               isActivated
-                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200 border border-emerald-300 dark:border-emerald-800'
-                : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 hover:bg-amber-200 border border-amber-300 dark:border-amber-800'
+                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-300/80 dark:border-emerald-800'
+                : 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 hover:bg-amber-100 border border-amber-300/80 dark:border-amber-800'
             }`}
           >
-            <span>{isActivated ? '🎖️' : '⏳'}</span>
-            <span className="hidden xs:inline">{isActivated ? 'مفعل' : trialLabel || 'تجربة'}</span>
+            {isActivated ? (
+              <IconBadgeCheck size={16} className="text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <IconHourglass size={15} className="text-amber-600 dark:text-amber-400 animate-pulse" />
+            )}
+            <span className="font-extrabold whitespace-nowrap">
+              {isActivated ? 'مفعل' : trialLabel || 'تجربة'}
+            </span>
           </button>
         )}
 
+        {/* Badges for Desktop & Tablet */}
         <div className="hidden sm:flex items-center gap-1">
           <DbSyncBadge status={dbStatus} />
+          <OfflineBadge />
         </div>
-        <OfflineBadge />
+
+        {/* Compact Connection Pulse Dot for 360px mobile view */}
+        <div className="sm:hidden flex items-center justify-center p-1.5" title="حالة الاتصال والبيانات">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-xs ring-2 ring-emerald-200 dark:ring-emerald-900" />
+        </div>
 
         {/* Teacher Profile Pill */}
         <div
           onClick={onOpenProfile}
-          className="flex items-center gap-1.5 sm:gap-2 ps-1.5 sm:ps-2 border-s border-slate-200 dark:border-slate-800 cursor-pointer hover:opacity-80 active:scale-95 transition"
+          className="flex items-center gap-1.5 sm:gap-2 ps-1.5 sm:ps-2 border-s border-slate-200 dark:border-slate-800 cursor-pointer hover:opacity-80 active:scale-95 transition min-h-[44px]"
           title="بيانات المعلم"
+          role="button"
+          tabIndex={0}
+          aria-label={`الملف الشخصي: ${teacherName}`}
         >
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 border border-teal-600/40 flex items-center justify-center text-teal-800 dark:text-teal-300 font-extrabold text-xs shadow-xs">
             {teacherName.slice(0, 1)}

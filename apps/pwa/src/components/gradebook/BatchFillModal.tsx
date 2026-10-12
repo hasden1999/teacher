@@ -202,6 +202,16 @@ export const BatchFillModal: React.FC<BatchFillModalProps> = ({
     onClose();
   };
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
     <div
       role="dialog"
@@ -212,8 +222,8 @@ export const BatchFillModal: React.FC<BatchFillModalProps> = ({
     >
       <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 flex flex-col space-y-4 max-h-[92vh] overflow-y-auto">
         {/* Mobile Drag Handle */}
-        <div className="pt-1 pb-1 flex justify-center sm:hidden">
-          <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+        <div className="pt-1 pb-1 flex justify-center sm:hidden" onClick={onClose}>
+          <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 cursor-grab" />
         </div>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
@@ -229,7 +239,7 @@ export const BatchFillModal: React.FC<BatchFillModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="إغلاق النافذة"
-            className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="min-h-[44px] min-w-[44px] w-11 h-11 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer active:scale-95"
           >
             ✕
           </button>

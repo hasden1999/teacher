@@ -4,13 +4,16 @@
  * Features:
  * - Search by student name or roll number
  * - Filter pills (All, Graded, Ungraded, Absent)
- * - Quick score steppers (- / +) and absent toggle
+ * - Tap score badge to open BottomSheetKeypad with auto-advance across students
+ * - Quick score steppers (- / +) with >= 44px touch targets
  * - Tap to open detailed evaluation card
- * - Touch-friendly touch targets (>= 48px)
+ * - Touch-friendly touch targets (>= 48px / 44px)
  */
 
 import React, { useState, useMemo } from 'react';
 import type { StudentRowItem, GradeColumnDef, GradebookMatrix } from './types.js';
+import { BottomSheetKeypad, type KeypadConfirmResult } from '../common/BottomSheetKeypad.js';
+import { IconMicrophone, IconSearch, IconClose } from '../common/Icons.js';
 
 export interface MobileStudentCardsViewProps {
   students: StudentRowItem[];
@@ -37,6 +40,9 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
+
+  // Keypad Modal State for fast sequential grading
+  const [keypadStudentIndex, setKeypadStudentIndex] = useState<number | null>(null);
 
   const activeCol = columns.find((c) => c.key === activeColumnKey) || columns[0];
   const maxScore = activeCol?.maxScore || 20;
@@ -65,6 +71,30 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
     });
   }, [students, grades, activeColumnKey, searchQuery, filterMode]);
 
+  // Active student for keypad
+  const keypadStudent = keypadStudentIndex !== null && filteredStudents[keypadStudentIndex]
+    ? filteredStudents[keypadStudentIndex]
+    : null;
+
+  // Keypad Handlers
+  const handleKeypadConfirm = (result: KeypadConfirmResult) => {
+    onGradeChange(result.studentId, activeColumnKey, result.score, result.isAbsent);
+  };
+
+  const handleKeypadNext = () => {
+    if (keypadStudentIndex !== null && keypadStudentIndex < filteredStudents.length - 1) {
+      setKeypadStudentIndex(keypadStudentIndex + 1);
+    } else {
+      setKeypadStudentIndex(null); // Finished all students
+    }
+  };
+
+  const handleKeypadPrev = () => {
+    if (keypadStudentIndex !== null && keypadStudentIndex > 0) {
+      setKeypadStudentIndex(keypadStudentIndex - 1);
+    }
+  };
+
   // Statistics
   const stats = useMemo(() => {
     let gradedCount = 0;
@@ -83,20 +113,20 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
   }, [students, grades, activeColumnKey]);
 
   return (
-    <div dir="rtl" className="space-y-3 font-tajawal pb-20">
+    <div dir="rtl" className="space-y-3 font-tajawal pb-24">
       {/* Mobile Sticky Selector & Search Bar */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 shadow-xs border border-slate-200 dark:border-slate-800 space-y-2.5">
         
         {/* Column & Evaluation Picker */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1">
-            <label className="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
+            <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 block mb-1">
               التقييم الحالي:
             </label>
             <select
               value={activeColumnKey}
               onChange={(e) => onColumnChange(e.target.value)}
-              className="w-full text-xs font-bold px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-teal-900 dark:text-teal-300 shadow-xs focus:ring-2 focus:ring-teal-500"
+              className="w-full text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-teal-900 dark:text-teal-300 shadow-xs focus:ring-2 focus:ring-teal-500"
             >
               {columns
                 .filter((col) => col.isEditable || col.key.startsWith('component_') || col.key === 'daily_total')
@@ -112,10 +142,11 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
           <button
             type="button"
             onClick={onOpenVoiceModal}
-            className="self-end min-h-[40px] px-3.5 py-2 rounded-xl bg-teal-800 hover:bg-teal-700 active:scale-95 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+            className="self-end min-h-[44px] px-3.5 py-2 rounded-xl bg-teal-800 hover:bg-teal-700 active:scale-95 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            aria-label="رصد الدرجات بالصوت"
           >
-            <span>🎙️</span>
-            <span>رصد صوتي</span>
+            <IconMicrophone size={16} />
+            <span className="whitespace-nowrap">رصد صوتي</span>
           </button>
         </div>
 
@@ -126,16 +157,19 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ابحث باسم الطالب أو رقمه..."
-            className="w-full min-h-[42px] px-9 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full min-h-[48px] px-9 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
-          <span className="absolute start-3 top-2.5 text-slate-400 text-sm">🔍</span>
+          <span className="absolute start-3 top-3.5 text-slate-400">
+            <IconSearch size={16} />
+          </span>
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
-              className="absolute end-3 top-2.5 text-slate-400 hover:text-slate-600 text-xs"
+              className="absolute end-3 top-3 text-slate-400 hover:text-slate-600 p-1"
+              aria-label="مسح البحث"
             >
-              ✕
+              <IconClose size={16} />
             </button>
           )}
         </div>
@@ -145,10 +179,10 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
           <button
             type="button"
             onClick={() => setFilterMode('all')}
-            className={`min-h-[32px] px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap ${
+            className={`min-h-[38px] px-3.5 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
               filterMode === 'all'
                 ? 'bg-teal-700 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
             }`}
           >
             <span>الكل</span>
@@ -158,7 +192,7 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
           <button
             type="button"
             onClick={() => setFilterMode('graded')}
-            className={`min-h-[32px] px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap ${
+            className={`min-h-[38px] px-3.5 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
               filterMode === 'graded'
                 ? 'bg-emerald-700 text-white shadow-xs'
                 : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
@@ -171,7 +205,7 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
           <button
             type="button"
             onClick={() => setFilterMode('ungraded')}
-            className={`min-h-[32px] px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap ${
+            className={`min-h-[38px] px-3.5 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
               filterMode === 'ungraded'
                 ? 'bg-amber-600 text-white shadow-xs'
                 : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60'
@@ -184,7 +218,7 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
           <button
             type="button"
             onClick={() => setFilterMode('absent')}
-            className={`min-h-[32px] px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap ${
+            className={`min-h-[38px] px-3.5 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer ${
               filterMode === 'absent'
                 ? 'bg-rose-700 text-white shadow-xs'
                 : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
@@ -199,12 +233,12 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
       {/* Student Cards List */}
       <div className="space-y-2">
         {filteredStudents.length === 0 ? (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 text-center text-slate-400 space-y-2 border border-slate-200 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 text-center text-slate-500 space-y-2 border border-slate-200 dark:border-slate-800">
             <span className="text-3xl block">🔍</span>
             <p className="text-xs font-bold">لا توجد نتائج مطابقة لبحثك</p>
           </div>
         ) : (
-          filteredStudents.map((std) => {
+          filteredStudents.map((std, index) => {
             const entry = grades[std.id]?.[activeColumnKey];
             const currentScore = entry?.score;
             const isAbsent = !!entry?.isAbsent;
@@ -213,7 +247,7 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
             return (
               <div
                 key={std.id}
-                className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 transition-transform active:scale-[0.99]"
+                className="bg-white dark:bg-slate-900 rounded-2xl p-3 shadow-xs border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2.5 transition-transform active:scale-[0.99]"
               >
                 {/* Student Avatar & Info */}
                 <div
@@ -221,7 +255,7 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
                   className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer"
                 >
                   <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center font-extrabold text-xs shadow-xs flex-shrink-0 ${
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs shadow-xs flex-shrink-0 ${
                       isAbsent
                         ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
                         : isGraded
@@ -232,17 +266,17 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
                     {std.rollNumber}
                   </div>
                   <div className="truncate">
-                    <h4 className="text-xs font-extrabold text-slate-900 dark:text-slate-100 truncate">
+                    <h4 className="text-xs font-black text-slate-900 dark:text-slate-100 truncate">
                       {std.fullName}
                     </h4>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
                       {std.guardianPhone ? `هاتف: ${std.guardianPhone}` : `الرقم التسلسلي: ${std.rollNumber}`}
                     </p>
                   </div>
                 </div>
 
-                {/* Score Controls */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Score Controls - Touch ergonomic */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   {/* Score Stepper */}
                   <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800">
                     <button
@@ -252,30 +286,28 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
                         const newScore = Math.max(0, (currentScore ?? 0) - 1);
                         onGradeChange(std.id, activeColumnKey, newScore, false);
                       }}
-                      className="w-8 h-9 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-slate-900 text-base font-bold disabled:opacity-30 active:bg-slate-200"
+                      aria-label={`إنقاص درجة ${std.fullName}`}
+                      className="w-9 h-11 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-slate-900 text-base font-bold disabled:opacity-30 active:bg-slate-200 dark:active:bg-slate-700 cursor-pointer"
                     >
                       -
                     </button>
 
-                    <input
-                      type="number"
-                      min={0}
-                      max={maxScore}
-                      value={isAbsent ? '' : currentScore ?? ''}
-                      disabled={isAbsent}
-                      placeholder={isAbsent ? 'غائب' : '-'}
-                      onChange={(e) => {
-                        const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
-                        onGradeChange(std.id, activeColumnKey, val, false);
-                      }}
-                      className={`w-14 h-9 text-center text-xs font-black border-x border-slate-200 dark:border-slate-700 ${
+                    {/* Score display: click to open fast numeric keypad */}
+                    <button
+                      type="button"
+                      onClick={() => setKeypadStudentIndex(index)}
+                      title="انقر لفتح لوحة المفاتيح الرقمية"
+                      aria-label={`تعديل درجة ${std.fullName}`}
+                      className={`w-14 h-11 text-center text-xs font-black border-x border-slate-200 dark:border-slate-700 flex items-center justify-center cursor-pointer transition-colors ${
                         isAbsent
                           ? 'bg-rose-50 text-rose-700 font-bold dark:bg-rose-950/40'
                           : isGraded
                           ? 'bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 font-black'
                           : 'bg-white dark:bg-slate-900 text-slate-400'
                       }`}
-                    />
+                    >
+                      {isAbsent ? 'غائب' : currentScore !== undefined && currentScore !== null ? currentScore : '-'}
+                    </button>
 
                     <button
                       type="button"
@@ -284,22 +316,24 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
                         const newScore = Math.min(maxScore, (currentScore ?? 0) + 1);
                         onGradeChange(std.id, activeColumnKey, newScore, false);
                       }}
-                      className="w-8 h-9 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-slate-900 text-base font-bold disabled:opacity-30 active:bg-slate-200"
+                      aria-label={`زيادة درجة ${std.fullName}`}
+                      className="w-9 h-11 flex items-center justify-center text-slate-700 dark:text-slate-300 hover:text-slate-900 text-base font-bold disabled:opacity-30 active:bg-slate-200 dark:active:bg-slate-700 cursor-pointer"
                     >
                       +
                     </button>
                   </div>
 
-                  {/* Absent Button */}
+                  {/* Absent Toggle Button - 44px min target */}
                   <button
                     type="button"
                     onClick={() => {
                       onGradeChange(std.id, activeColumnKey, isAbsent ? 15 : null, !isAbsent);
                     }}
-                    className={`min-h-[36px] px-2.5 py-1 rounded-xl text-[11px] font-bold transition flex items-center justify-center ${
+                    aria-label={`تسجيل غياب أو حضور ${std.fullName}`}
+                    className={`min-h-[44px] min-w-[40px] px-2.5 py-1 rounded-xl text-xs font-black transition flex items-center justify-center cursor-pointer ${
                       isAbsent
-                        ? 'bg-rose-600 text-white shadow-xs ring-2 ring-rose-200'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800'
+                        ? 'bg-rose-600 text-white shadow-xs ring-2 ring-rose-200 dark:ring-rose-900'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900'
                     }`}
                   >
                     غ
@@ -310,6 +344,27 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
           })
         )}
       </div>
+
+      {/* Integrated BottomSheetKeypad for Sequential Grading on Mobile */}
+      {keypadStudent && (
+        <BottomSheetKeypad
+          isOpen={true}
+          studentId={keypadStudent.id}
+          studentName={keypadStudent.fullName}
+          studentIndex={(keypadStudentIndex ?? 0) + 1}
+          totalStudents={filteredStudents.length}
+          columnTitle={activeCol.label}
+          initialValue={grades[keypadStudent.id]?.[activeColumnKey]?.score ?? null}
+          initialAbsent={!!grades[keypadStudent.id]?.[activeColumnKey]?.isAbsent}
+          minScore={0}
+          maxScore={maxScore}
+          autoAdvance={true}
+          onConfirm={handleKeypadConfirm}
+          onNext={handleKeypadNext}
+          onPrev={handleKeypadPrev}
+          onClose={() => setKeypadStudentIndex(null)}
+        />
+      )}
     </div>
   );
 };

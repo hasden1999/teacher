@@ -150,7 +150,8 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="absolute top-6 left-6 text-white/80 hover:text-white text-lg p-1"
+              aria-label="إغلاق"
+              className="absolute top-6 start-6 text-white/80 hover:text-white text-lg p-1 min-h-[48px] min-w-[48px] flex items-center justify-center cursor-pointer"
             >
               ✕
             </button>

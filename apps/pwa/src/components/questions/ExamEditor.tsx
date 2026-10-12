@@ -122,78 +122,69 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
     if (onSave) onSave(updatedAST);
   };
 
+  const commitAstChange = (nextAST: ExamPaperAST) => {
+    setAst(nextAST);
+    setRawText(serializeExamPaperAST(nextAST));
+    if (onSave) onSave(nextAST);
+  };
+
   // Update a question in structured mode
   const updateQuestion = (qIndex: number, updater: (q: ExamQuestionAST) => ExamQuestionAST) => {
-    setAst(prev => {
-      const nextQuestions = [...prev.questions];
-      nextQuestions[qIndex] = updater(nextQuestions[qIndex]);
-      const nextAST = { ...prev, questions: nextQuestions };
-      setRawText(serializeExamPaperAST(nextAST));
-      if (onSave) onSave(nextAST);
-      return nextAST;
-    });
+    const nextQuestions = [...ast.questions];
+    if (!nextQuestions[qIndex]) return;
+    nextQuestions[qIndex] = updater(nextQuestions[qIndex]);
+    const nextAST = { ...ast, questions: nextQuestions };
+    commitAstChange(nextAST);
   };
 
   // Add a new question
   const handleAddQuestion = () => {
-    setAst(prev => {
-      const nextNum = prev.questions.length + 1;
-      const newQ: ExamQuestionAST = {
-        id: `q_${nextNum}_${Date.now()}`,
-        questionNumber: nextNum,
-        headerLabel: `س${nextNum}`,
-        header: `س${nextNum}:`,
-        type: 'GENERAL',
-        instruction: 'أجب عما يأتي:',
-        subItems: [],
-        branches: [],
-        marks: 20,
-      };
-      const nextAST = { ...prev, questions: [...prev.questions, newQ] };
-      setRawText(serializeExamPaperAST(nextAST));
-      if (onSave) onSave(nextAST);
-      return nextAST;
-    });
+    const nextNum = ast.questions.length + 1;
+    const newQ: ExamQuestionAST = {
+      id: `q_${nextNum}_${Date.now()}`,
+      questionNumber: nextNum,
+      headerLabel: `س${nextNum}`,
+      header: `س${nextNum}:`,
+      type: 'GENERAL',
+      instruction: 'أجب عما يأتي:',
+      subItems: [],
+      branches: [],
+      marks: 20,
+    };
+    const nextAST = { ...ast, questions: [...ast.questions, newQ] };
+    commitAstChange(nextAST);
   };
 
   // Delete a question
   const handleDeleteQuestion = (qIndex: number) => {
-    setAst(prev => {
-      const nextQuestions = prev.questions.filter((_, i) => i !== qIndex).map((q, idx) => ({
-        ...q,
-        questionNumber: idx + 1,
-        headerLabel: `س${idx + 1}`,
-      }));
-      const nextAST = { ...prev, questions: nextQuestions };
-      setRawText(serializeExamPaperAST(nextAST));
-      if (onSave) onSave(nextAST);
-      return nextAST;
-    });
+    const nextQuestions = ast.questions.filter((_, i) => i !== qIndex).map((q, idx) => ({
+      ...q,
+      questionNumber: idx + 1,
+      headerLabel: `س${idx + 1}`,
+    }));
+    const nextAST = { ...ast, questions: nextQuestions };
+    commitAstChange(nextAST);
   };
 
   // Move Question Up/Down
   const handleMoveQuestion = (qIndex: number, direction: 'up' | 'down') => {
-    setAst(prev => {
-      const targetIdx = direction === 'up' ? qIndex - 1 : qIndex + 1;
-      if (targetIdx < 0 || targetIdx >= prev.questions.length) return prev;
+    const targetIdx = direction === 'up' ? qIndex - 1 : qIndex + 1;
+    if (targetIdx < 0 || targetIdx >= ast.questions.length) return;
 
-      const nextQuestions = [...prev.questions];
-      const temp = nextQuestions[qIndex];
-      nextQuestions[qIndex] = nextQuestions[targetIdx];
-      nextQuestions[targetIdx] = temp;
+    const nextQuestions = [...ast.questions];
+    const temp = nextQuestions[qIndex];
+    nextQuestions[qIndex] = nextQuestions[targetIdx];
+    nextQuestions[targetIdx] = temp;
 
-      // Re-number
-      const renumbered = nextQuestions.map((q, idx) => ({
-        ...q,
-        questionNumber: idx + 1,
-        headerLabel: `س${idx + 1}`,
-      }));
+    // Re-number
+    const renumbered = nextQuestions.map((q, idx) => ({
+      ...q,
+      questionNumber: idx + 1,
+      headerLabel: `س${idx + 1}`,
+    }));
 
-      const nextAST = { ...prev, questions: renumbered };
-      setRawText(serializeExamPaperAST(nextAST));
-      if (onSave) onSave(nextAST);
-      return nextAST;
-    });
+    const nextAST = { ...ast, questions: renumbered };
+    commitAstChange(nextAST);
   };
 
   // Add Branch to a Question

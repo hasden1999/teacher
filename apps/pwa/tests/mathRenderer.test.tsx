@@ -56,6 +56,13 @@ describe('KaTeX & Math Formula Engine Suite', () => {
       expect(fallbackHtml).toBeTruthy();
     });
 
+    it('P0-5: sanitizes 6000 char formula with <img onerror> and strips onerror', () => {
+      const longPayload = 'x + '.repeat(1500) + '<img src="x" onerror="alert(1)">';
+      const result = renderKatexToString(longPayload);
+      expect(result).not.toContain('onerror');
+      expect(result).not.toContain('alert(1)');
+    }, 15000);
+
     it('extracts math and chemical formulas from mixed Arabic text', () => {
       const text = 'حل المعادلة: $x^2 + 5x + 6 = 0$ وتفاعل التفكك: \\ce{2KClO3 -> 2KCl + 3O2 ^} والتكامل $$\\int x dx$$';
       const extracted = extractFormulas(text);

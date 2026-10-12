@@ -5,6 +5,7 @@ import {
   SubscriptionTier,
   AdminLockoutInfo,
 } from '../../services/authService.js';
+import { base64UrlToBytes } from '@techeeer/core';
 import { useToast } from '../common/Toast.js';
 
 export interface AdminPortalModalProps {
@@ -21,6 +22,7 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({ isOpen, onCl
   // Generator form
   const [targetPhone, setTargetPhone] = useState('');
   const [targetTeacherName, setTargetTeacherName] = useState('');
+  const [adminSigningKey, setAdminSigningKey] = useState('');
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('monthly');
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
 
@@ -85,12 +87,31 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({ isOpen, onCl
       return;
     }
 
+    let signingKeyBytes: Uint8Array | undefined;
+    if (adminSigningKey.trim()) {
+      try {
+        signingKeyBytes = base64UrlToBytes(adminSigningKey.trim());
+      } catch {
+        showToast({ message: 'صيغة المفتاح الخاص غير صالحة (Base64URL مطلوب)', type: 'error' });
+        return;
+      }
+    }
+
+    if (!signingKeyBytes) {
+      showToast({
+        message: 'يتطلب التوقيع إدخال مفتاح الإدارة الخاص، أو استخدم أداة الطرفية: pnpm run license:generate',
+        type: 'error',
+      });
+      return;
+    }
+
     setIsGenerating(true);
     try {
       const key = await authService.generateKeyForTeacher(
         targetPhone.trim(),
         selectedTier,
-        targetTeacherName.trim()
+        targetTeacherName.trim(),
+        signingKeyBytes
       );
       setGeneratedKey(key);
       showToast({ message: 'تم توليد كود التفعيل المشفر بنجاح!', type: 'success' });
@@ -113,7 +134,7 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({ isOpen, onCl
     const message = `مرحباً ${targetTeacherName || 'أستاذنا الفاضل'}،\nتم إصدار كود التفعيل الرقمي المشفر الخاص بك لتطبيق مساعد المعلم العراقي:\n\nكود التفعيل (Ed25519):\n${generatedKey}\n\nنوع الاشتراك: ${tierLabel}\n\nنتمنى لكم فصلاً دراسياً موفقاً!`;
     const cleanPhone = targetPhone.replace(/\D/g, '').replace(/^0/, '964');
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -138,7 +159,8 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({ isOpen, onCl
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-6 left-6 text-white/70 hover:text-white text-lg p-1"
+            aria-label="إغلاق"
+            className="absolute top-6 start-6 text-white/70 hover:text-white text-lg p-1 min-h-[48px] min-w-[48px] flex items-center justify-center cursor-pointer"
           >
             ✕
           </button>
@@ -262,6 +284,22 @@ export const AdminPortalModal: React.FC<AdminPortalModalProps> = ({ isOpen, onCl
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    المفتاح الخاص للتوقيع الرقمي (Ed25519 Signing Key):
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="أدخل المفتاح الخاص أو استخدم أداة الطرفية: pnpm run license:generate"
+                    value={adminSigningKey}
+                    onChange={(e) => setAdminSigningKey(e.target.value)}
+                    className="w-full min-h-[44px] px-3.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono text-xs"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    ملاحظة أمنية: لا يُخزن المفتاح الخاص في المتصفح، ويمكنك توليد التراخيص عبر الطرفية: <code className="text-teal-600 dark:text-teal-400 font-bold">pnpm run license:generate</code>
+                  </p>
                 </div>
 
                 <button

@@ -159,6 +159,16 @@ export const StudentCardModal: React.FC<StudentCardModalProps> = ({
     'يرجى الاهتمام بالحضور وتجنب تكرار الغياب ⚠️',
   ];
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
     <div
       role="dialog"
@@ -169,8 +179,8 @@ export const StudentCardModal: React.FC<StudentCardModalProps> = ({
     >
       <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[92vh] overflow-hidden text-start">
         {/* Mobile Drag Handle */}
-        <div className="pt-2 pb-1 flex justify-center sm:hidden">
-          <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+        <div className="pt-2 pb-1 flex justify-center sm:hidden" onClick={onClose}>
+          <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 cursor-grab" />
         </div>
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-teal-50/50 dark:bg-teal-950/20">
@@ -186,7 +196,7 @@ export const StudentCardModal: React.FC<StudentCardModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="إغلاق النافذة"
-            className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="min-h-[44px] min-w-[44px] w-11 h-11 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           >
             ✕
           </button>

@@ -69,6 +69,16 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  html.dark {
+    background-color: #0F172A;
+    color: #F8FAFC;
+  }
+
+  html.dark body {
+    background-color: #0F172A;
+    color: #F8FAFC;
+  }
+
   body {
     min-height: 100vh;
     min-height: 100dvh;

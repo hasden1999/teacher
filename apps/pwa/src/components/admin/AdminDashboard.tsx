@@ -11,6 +11,7 @@ import {
   DEFAULT_CENTRAL_GEMINI_API_KEY,
 } from '../../config/aiConfig.js';
 import { useToast } from '../common/Toast.js';
+import { base64UrlToBytes } from '@techeeer/core';
 
 export interface IssuedLicenseRecord {
   id: string;
@@ -53,6 +54,7 @@ export const AdminDashboard: React.FC = () => {
   // Generator form state
   const [targetPhone, setTargetPhone] = useState<string>('');
   const [targetTeacherName, setTargetTeacherName] = useState<string>('');
+  const [adminSigningKey, setAdminSigningKey] = useState<string>('');
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier>('annual');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
@@ -202,12 +204,31 @@ export const AdminDashboard: React.FC = () => {
       return;
     }
 
+    let signingKeyBytes: Uint8Array | undefined;
+    if (adminSigningKey.trim()) {
+      try {
+        signingKeyBytes = base64UrlToBytes(adminSigningKey.trim());
+      } catch {
+        showToast({ message: 'صيغة المفتاح الخاص غير صالحة (Base64URL مطلوب)', type: 'error' });
+        return;
+      }
+    }
+
+    if (!signingKeyBytes) {
+      showToast({
+        message: 'يتطلب التوقيع إدخال مفتاح الإدارة الخاص، أو استخدام أداة الطرفية: pnpm run license:generate',
+        type: 'error',
+      });
+      return;
+    }
+
     setIsGenerating(true);
     try {
       const key = await authService.generateKeyForTeacher(
         targetPhone.trim(),
         selectedTier,
-        targetTeacherName.trim() || 'الأستاذ المشترك'
+        targetTeacherName.trim() || 'الأستاذ المشترك',
+        signingKeyBytes
       );
       setGeneratedKey(key);
 
@@ -248,7 +269,7 @@ export const AdminDashboard: React.FC = () => {
     const message = `السلام عليكم ورحمة الله، أستاذنا الفاضل ${record.teacherName}،\nتم تفعيل اشتراكك في تطبيق «مساعد المعلم العراقي» بنجاح!\n\n📋 نوع الباقة: ${record.tierLabel}\n🔑 رمز التفعيل المشفر الخاص بك (Ed25519):\n${record.token}\n\nنتمنى لك عاماً دراسياً حافلاً بالتميز والتوفيق!`;
     const cleanPhone = record.phone.replace(/\D/g, '').replace(/^0/, '964');
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleAddNewSubscriberManual = async (e: React.FormEvent) => {
@@ -258,11 +279,30 @@ export const AdminDashboard: React.FC = () => {
       return;
     }
 
+    let signingKeyBytes: Uint8Array | undefined;
+    if (adminSigningKey.trim()) {
+      try {
+        signingKeyBytes = base64UrlToBytes(adminSigningKey.trim());
+      } catch {
+        showToast({ message: 'صيغة المفتاح الخاص غير صالحة (Base64URL مطلوب)', type: 'error' });
+        return;
+      }
+    }
+
+    if (!signingKeyBytes) {
+      showToast({
+        message: 'يتطلب التوقيع إدخال مفتاح الإدارة الخاص، أو استخدام أداة الطرفية: pnpm run license:generate',
+        type: 'error',
+      });
+      return;
+    }
+
     try {
       const key = await authService.generateKeyForTeacher(
         newSubPhone.trim(),
         newSubTier,
-        newSubName.trim()
+        newSubName.trim(),
+        signingKeyBytes
       );
 
       const tierObj = SUBSCRIPTION_TIERS.find((t) => t.id === newSubTier);
@@ -648,6 +688,22 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
 
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                        المفتاح الخاص للتوقيع الرقمي (Ed25519 Signing Key):
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="أدخل المفتاح الخاص أو استخدم أداة الطرفية: pnpm run license:generate"
+                        value={adminSigningKey}
+                        onChange={(e) => setAdminSigningKey(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:border-teal-500 focus:outline-none font-mono"
+                      />
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        ملاحظة أمنية: لا يُخزن هذا المفتاح محلياً. لتوليد التراخيص دون إدخال المفتاح في المتصفح، استخدم الطرفية: <code className="text-teal-400 font-bold">pnpm run license:generate</code>
+                      </p>
+                    </div>
+
                     <button
                       type="submit"
                       disabled={isGenerating}
@@ -792,7 +848,7 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                 ) : (
                   <div className="overflow-x-auto rounded-2xl border border-slate-800">
-                    <table className="w-full text-right text-xs">
+                    <table className="w-full text-start text-xs">
                       <thead className="bg-slate-950 text-slate-400 font-bold border-b border-slate-800">
                         <tr>
                           <th className="p-3">المعلم</th>
@@ -968,6 +1024,19 @@ export const AdminDashboard: React.FC = () => {
                               </option>
                             ))}
                           </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1">
+                            مفتاح التوقيع الإداري الخاص (Ed25519 Signing Key): *
+                          </label>
+                          <input
+                            type="password"
+                            placeholder="أدخل المفتاح الخاص أو استخدم أداة الطرفية: pnpm run license:generate"
+                            value={adminSigningKey}
+                            onChange={(e) => setAdminSigningKey(e.target.value)}
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:border-teal-500 focus:outline-none font-mono"
+                          />
                         </div>
 
                         <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">

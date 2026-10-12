@@ -14,10 +14,12 @@ import type { TeacherProfile } from '@techeeer/content';
 import { getSubjectsByStageAndGrade } from '@techeeer/content';
 import {
   authService,
-  ADMIN_PHONE_NUMBER,
+  SUPPORT_PHONE_NUMBER,
   SUBSCRIPTION_TIERS,
 } from '../../services/authService.js';
 import { ActivationGateModal } from '../auth/ActivationGateModal.js';
+import { getStoredTheme, setAppTheme, type AppTheme } from '../../utils/theme.js';
+import { IconSun, IconMoon, IconDevice } from '../common/Icons.js';
 
 export interface SettingsStudioProps {
   teacher?: TeacherProfile;
@@ -75,6 +77,17 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
   const [phone, setPhone] = useState(savedProfile?.phone || '');
   const [schoolName, setSchoolName] = useState(savedProfile?.schoolName || 'مدرسة سومر الابتدائية');
   const [governorate, setGovernorate] = useState(savedProfile?.governorate || 'بغداد');
+
+  const [currentTheme, setCurrentTheme] = useState<AppTheme>(() => getStoredTheme());
+
+  const handleThemeChange = (newTheme: AppTheme) => {
+    setCurrentTheme(newTheme);
+    setAppTheme(newTheme);
+    showToast({
+      message: `تم تفعيل ${newTheme === 'dark' ? 'الوضع الليلي' : newTheme === 'light' ? 'الوضع النهاري' : 'الوضع التلقائي'} بنجاح`,
+      type: 'success',
+    });
+  };
 
   // Selected stage & grade key
   const [selectedGradeKey, setSelectedGradeKey] = useState<string>(() => {
@@ -146,7 +159,7 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
     showToast({ message: 'تم حفظ بيانات المعلم والتخصص الدراسي محلياً بنجاح', type: 'success' });
   };
 
-  const whatsappUrl = `https://wa.me/964${ADMIN_PHONE_NUMBER.replace(/^0/, '')}?text=${encodeURIComponent(
+  const whatsappUrl = `https://wa.me/964${SUPPORT_PHONE_NUMBER.replace(/^0/, '')}?text=${encodeURIComponent(
     `السلام عليكم ورحمة الله، أرغب بتفعيل تطبيق مساعد المعلم العراقي.\nاسم المعلم: ${teacherName}\nرقم الهاتف: ${phone}`
   )}`;
 
@@ -335,11 +348,11 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
 
             <div className="flex items-center gap-2">
               <a
-                href={`tel:${ADMIN_PHONE_NUMBER}`}
+                href={`tel:${SUPPORT_PHONE_NUMBER}`}
                 className="px-3.5 py-2 rounded-xl bg-teal-800 text-white font-mono font-bold text-xs flex items-center gap-1.5 shadow"
               >
                 <span>📞</span>
-                <span>{ADMIN_PHONE_NUMBER}</span>
+                <span>{SUPPORT_PHONE_NUMBER}</span>
               </a>
               <a
                 href={whatsappUrl}
@@ -359,9 +372,66 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
           <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
             <span>📞</span>
             <span>
-              <strong>رقم هاتف الدعم الفني والتفعيل:</strong> {ADMIN_PHONE_NUMBER}
+              <strong>رقم هاتف الدعم الفني والتفعيل:</strong> {SUPPORT_PHONE_NUMBER}
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* 2.5 Theme & Appearance Settings (Dark Mode) */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
+        <div>
+          <h3 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <span>🎨</span>
+            <span>المظهر وسمة العرض (الوضع الليلي / النهاري):</span>
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            اختر مظهر المنصة المفضل لك لتوفير الراحة لعينيك أثناء رصد الدرجات أو إعداد الامتحانات ليلاً.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2.5 max-w-md">
+          <button
+            type="button"
+            onClick={() => handleThemeChange('light')}
+            aria-label="تفعيل الوضع النهاري"
+            className={`min-h-[48px] p-3 rounded-2xl border transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
+              currentTheme === 'light'
+                ? 'border-teal-600 bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-200 ring-2 ring-teal-500/30 font-black shadow-xs'
+                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+            }`}
+          >
+            <IconSun size={20} className={currentTheme === 'light' ? 'text-amber-500' : 'text-slate-400'} />
+            <span className="text-xs">نهاري</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleThemeChange('dark')}
+            aria-label="تفعيل الوضع الليلي"
+            className={`min-h-[48px] p-3 rounded-2xl border transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
+              currentTheme === 'dark'
+                ? 'border-teal-600 bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-200 ring-2 ring-teal-500/30 font-black shadow-xs'
+                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+            }`}
+          >
+            <IconMoon size={20} className={currentTheme === 'dark' ? 'text-teal-400' : 'text-slate-400'} />
+            <span className="text-xs">ليلي</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleThemeChange('system')}
+            aria-label="تفعيل الوضع التلقائي حسب النظام"
+            className={`min-h-[48px] p-3 rounded-2xl border transition-all flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
+              currentTheme === 'system'
+                ? 'border-teal-600 bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-200 ring-2 ring-teal-500/30 font-black shadow-xs'
+                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+            }`}
+          >
+            <IconDevice size={20} className={currentTheme === 'system' ? 'text-teal-600' : 'text-slate-400'} />
+            <span className="text-xs">تلقائي</span>
+          </button>
         </div>
       </div>
 

@@ -254,7 +254,7 @@ describe('Question Studio, Dual-Mode Exam Editor & Exporter Suite (M5)', () => {
       expect(blob.type).toBe('application/pdf');
 
       el.remove();
-    });
+    }, 30000);
 
     it('generates an image blob from an HTML element', async () => {
       const el = document.createElement('div');

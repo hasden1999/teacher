@@ -127,7 +127,7 @@ export const InstallGate: React.FC<InstallGateProps> = ({
               onClick={handleInstallClick}
               className="px-3.5 py-1.5 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-xs font-black shadow transition active:scale-95 cursor-pointer"
             >
-              تثبيت التطبيق الآن
+              تثبيت التطبيق على الهاتف الآن
             </button>
           </div>
         </div>
@@ -182,7 +182,7 @@ export const InstallGate: React.FC<InstallGateProps> = ({
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="w-full min-h-[42px] bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl shadow transition"
+                className="w-full min-h-[48px] bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-xl shadow transition"
               >
                 تم، فهمت ذلك ✓
               </button>

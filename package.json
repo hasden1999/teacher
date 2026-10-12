@@ -17,6 +17,7 @@
     "test:coverage": "pnpm -r run test:coverage",
     "test:e2e": "pnpm --filter @techeeer/tests-e2e test",
     "typecheck": "pnpm -r run typecheck",
+    "license:generate": "npx tsx scripts/gen-license/index.ts",
     "lint": "pnpm -r run lint"
   },
   "devDependencies": {

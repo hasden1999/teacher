@@ -94,6 +94,18 @@ export const VoiceGradeEntryModal: React.FC<VoiceGradeEntryModalProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isRecording && !isAiProcessing) {
+        cleanupRecording();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isRecording, isAiProcessing, onClose]);
+
   // Start Real Microphone Recording
   const startRecording = async () => {
     try {
@@ -453,7 +465,7 @@ ${JSON.stringify(studentsRosterSummary, null, 2)}
               onClose();
             }}
             aria-label="إغلاق النافذة"
-            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            className="min-h-[44px] min-w-[44px] w-11 h-11 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer active:scale-95"
           >
             ✕
           </button>

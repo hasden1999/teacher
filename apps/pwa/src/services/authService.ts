@@ -100,12 +100,10 @@ export const SUBSCRIPTION_TIERS: SubscriptionTierInfo[] = [
 ];
 
 // Support contact hotline (no longer treated as an authentication credential)
-export const SUPPORT_PHONE_NUMBER = '07700000000';
-// Backwards compatibility export for SettingsStudio (not an admin credential)
-export const ADMIN_PHONE_NUMBER = SUPPORT_PHONE_NUMBER;
+export const SUPPORT_PHONE_NUMBER = '07764271130';
 
 export const OFFICIAL_ED25519_PUBLIC_KEY: Uint8Array = base64UrlToBytes(
-  'ESIHvLeeGJoOOq1POh0CO1VzceiJubanNBzoWVrlwfY'
+  's5_ntokQ9Eu7Yl1yf1bif4vmeQ3IQIB3ZngblcQHk4k'
 );
 
 const STORAGE_KEY_TEACHER = 'techeeer_teacher_profile';
@@ -246,7 +244,12 @@ function getDeviceSalt(): string {
   try {
     let salt = localStorage.getItem(STORAGE_KEY_DEVICE_SALT);
     if (!salt) {
-      salt = 'techeeer_device_' + Math.random().toString(36).substring(2) + '_' + Date.now().toString(36);
+      const randBytes = new Uint8Array(16);
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        crypto.getRandomValues(randBytes);
+      }
+      const randHex = Array.from(randBytes, (b) => b.toString(16).padStart(2, '0')).join('');
+      salt = `techeeer_device_${randHex}_${Date.now().toString(36)}`;
       localStorage.setItem(STORAGE_KEY_DEVICE_SALT, salt);
     }
     return salt;
@@ -363,8 +366,13 @@ export const authService = {
   saveTeacherProfile(profile: Partial<TeacherAccount>): TeacherAccount {
     const existing = this.getTeacherProfile();
     const now = Date.now();
+    const randBytes = new Uint8Array(4);
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      crypto.getRandomValues(randBytes);
+    }
+    const randHex = Array.from(randBytes, (b) => b.toString(16).padStart(2, '0')).join('');
     const updated: TeacherAccount = {
-      id: existing?.id || `teach_${now}_${Math.random().toString(36).substring(2, 7)}`,
+      id: existing?.id || `teach_${now}_${randHex}`,
       fullName: profile.fullName || existing?.fullName || 'الأستاذ',
       phone: profile.phone || existing?.phone || '',
       schoolName: profile.schoolName || existing?.schoolName || 'المدرسة',
@@ -653,11 +661,7 @@ export const authService = {
       return await signLicensePayload(payload, signingPrivateKey);
     }
 
-    // Default administrative signing key (RFC 8410 key matching OFFICIAL_ED25519_PUBLIC_KEY)
-    const officialPrivateKey = base64UrlToBytes(
-      'MC4CAQAwBQYDK2VwBCIEIPvrKILvYTFbTXn3xTr2lXlkGb-l6g-8SD84peiP_IEa'
-    );
-    return await signLicensePayload(payload, officialPrivateKey);
+    throw new Error('Signing key must be provided by admin tool');
   },
 
   /**
@@ -712,9 +716,17 @@ export const authService = {
     }
 
     if (computedHash === storedHash) {
-      // Success: clear lockout and set session
+      // Success: clear lockout and set cryptographically random UUID session with 30-min expiry
       sessionStorage.removeItem(STORAGE_KEY_ADMIN_LOCKOUT);
-      sessionStorage.setItem(STORAGE_KEY_ADMIN_SESSION, 'true');
+      const sessionToken =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `adm_${Date.now()}_${Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, '0')).join('')}`;
+      const sessionData = {
+        token: sessionToken,
+        expiresAt: now + 30 * 60 * 1000,
+      };
+      sessionStorage.setItem(STORAGE_KEY_ADMIN_SESSION, JSON.stringify(sessionData));
       return true;
     }
 
@@ -742,7 +754,26 @@ export const authService = {
   },
 
   isAdminLoggedIn(): boolean {
-    return sessionStorage.getItem(STORAGE_KEY_ADMIN_SESSION) === 'true';
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY_ADMIN_SESSION);
+      if (!raw) return false;
+      const session = JSON.parse(raw);
+      if (
+        session &&
+        typeof session === 'object' &&
+        typeof session.token === 'string' &&
+        session.token.length > 0 &&
+        typeof session.expiresAt === 'number' &&
+        session.expiresAt > Date.now()
+      ) {
+        return true;
+      }
+      sessionStorage.removeItem(STORAGE_KEY_ADMIN_SESSION);
+      return false;
+    } catch {
+      sessionStorage.removeItem(STORAGE_KEY_ADMIN_SESSION);
+      return false;
+    }
   },
 
   logoutAdmin(): void {
