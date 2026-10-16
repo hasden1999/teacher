@@ -2,6 +2,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { ToastProvider } from './components/common/Toast.js';
 import { InstallGate } from './components/common/InstallGate.js';
 import { InAppEscapeModal } from './components/common/InAppEscapeModal.js';
+import { ErrorBoundary } from './components/common/ErrorBoundary.js';
 import { AppShell } from './components/layout/AppShell.js';
 import type { NavTabId } from './components/layout/DesktopSidebar.js';
 import { TeacherLoginModal } from './components/auth/TeacherLoginModal.js';
@@ -33,7 +34,19 @@ const AdminDashboard = lazy(() =>
 );
 
 export const AppContent: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<NavTabId>('gradebook');
+  const [activeTab, setActiveTab] = useState<NavTabId>(() => {
+    if (typeof window !== 'undefined') {
+      const h = window.location.hash.toLowerCase().replace(/^#\/?/, '');
+      if (['gradebook', 'questions', 'plans', 'classes', 'backups', 'settings'].includes(h)) {
+        return h as NavTabId;
+      }
+      const p = window.location.pathname.toLowerCase().replace(/^\//, '');
+      if (['gradebook', 'questions', 'plans', 'classes', 'backups', 'settings'].includes(p)) {
+        return p as NavTabId;
+      }
+    }
+    return 'gradebook';
+  });
   
   // Teacher profile state initialized from authService
   const [teacherAccount, setTeacherAccount] = useState<TeacherAccount | null>(() =>
@@ -84,6 +97,11 @@ export const AppContent: React.FC = () => {
         search.includes('portal=admin') ||
         path === '/admin'
       );
+
+      const cleanHash = hash.replace(/^#\/?/, '');
+      if (['gradebook', 'questions', 'plans', 'classes', 'backups', 'settings'].includes(cleanHash)) {
+        setActiveTab(cleanHash as NavTabId);
+      }
     };
     window.addEventListener('hashchange', handleLocationChange);
     window.addEventListener('popstate', handleLocationChange);
@@ -152,7 +170,7 @@ export const AppContent: React.FC = () => {
           {activeTab === 'gradebook' && <GradebookStudio />}
 
           {activeTab === 'questions' && (
-            <div className="h-[calc(100vh-130px)] min-h-[650px] flex flex-col">
+            <div className="h-[calc(100dvh-125px)] sm:h-[calc(100vh-130px)] sm:min-h-[650px] flex flex-col">
               <ExamEditor
                 teacherSubject={subjectNameAr}
                 teacherGrade={teacher.grade}
@@ -201,9 +219,11 @@ export const AppContent: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <ToastProvider>
-      <AppContent />
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
+    </ErrorBoundary>
   );
 };
 

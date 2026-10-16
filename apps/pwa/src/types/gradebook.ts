@@ -53,9 +53,14 @@ export type GradeCategory =
   | 'month_1'
   | 'month_2'
   | 'mid_term'
+  | 'semester_1_avg'
+  | 'month_3'
+  | 'month_4'
+  | 'semester_2_avg'
   | 'annual_effort'
   | 'final_exam'
-  | 'round_2';
+  | 'round_2'
+  | 'final_status';
 
 export type GradeMode = 'detailed' | 'simplified';
 

@@ -76,9 +76,17 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         </div>
 
         {/* Compact Connection Pulse Dot for 360px mobile view */}
-        <div className="sm:hidden flex items-center justify-center p-1.5" title="حالة الاتصال والبيانات">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-xs ring-2 ring-emerald-200 dark:ring-emerald-900" />
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            window.location.hash = '#backups';
+          }}
+          className="sm:hidden flex items-center justify-center p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition min-h-[44px] min-w-[44px] cursor-pointer"
+          title="حالة قاعدة البيانات والنسخ الاحتياطي - انقر للانتقال"
+          aria-label="النسخ الاحتياطي وقاعدة البيانات"
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-xs ring-2 ring-emerald-200 dark:ring-emerald-900 animate-pulse" />
+        </button>
 
         {/* Teacher Profile Pill */}
         <div

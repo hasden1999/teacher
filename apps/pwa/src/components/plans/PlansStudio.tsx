@@ -11,6 +11,7 @@ import { LessonPlanEditor } from './LessonPlanEditor.js';
 import { PlanTracker } from './PlanTracker.js';
 import { AnnualPlanView } from './AnnualPlanView.js';
 import { lessonPlanDbService } from '../../services/lessonPlanDbService.js';
+import { getSubjectById } from '@techeeer/content';
 import type { TeacherProfile } from '@techeeer/content';
 
 export interface PlansStudioProps {
@@ -26,48 +27,52 @@ export const PlansStudio: React.FC<PlansStudioProps> = ({
   },
 }) => {
   const [subTab, setSubTab] = useState<'daily' | 'tracker' | 'annual'>('daily');
+  const subjectNameAr = getSubjectById(teacher.subject)?.nameAr || 'المنهج الدراسي';
 
   return (
-    <div dir="rtl" className="max-w-7xl mx-auto space-y-4 font-tajawal">
+    <div dir="rtl" className="max-w-7xl mx-auto space-y-4 font-tajawal pb-16">
       {/* Sub-Navigation Bar */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-2 shadow-sm border border-slate-200 dark:border-slate-800 flex flex-wrap gap-2">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-1.5 shadow-xs border border-slate-200 dark:border-slate-800 flex items-center overflow-x-auto no-scrollbar gap-1.5">
         <button
           type="button"
           onClick={() => setSubTab('daily')}
-          className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+          className={`min-h-[44px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 flex-1 whitespace-nowrap cursor-pointer ${
             subTab === 'daily'
-              ? 'bg-teal-700 text-white shadow'
+              ? 'bg-teal-700 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <span>📋</span>
-          <span>الخطة اليومية (خماسية التدريس)</span>
+          <span className="sm:hidden">الخطة اليومية</span>
+          <span className="hidden sm:inline">الخطة اليومية (خماسية التدريس)</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSubTab('tracker')}
-          className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+          className={`min-h-[44px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 flex-1 whitespace-nowrap cursor-pointer ${
             subTab === 'tracker'
-              ? 'bg-teal-700 text-white shadow'
+              ? 'bg-teal-700 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <span>⚡</span>
-          <span>متابعة المنهاج وإعادة الجدولة (Ripple-Shift)</span>
+          <span className="sm:hidden">متابعة المنهاج</span>
+          <span className="hidden sm:inline">متابعة المنهاج وإعادة الجدولة</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSubTab('annual')}
-          className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+          className={`min-h-[44px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 flex-1 whitespace-nowrap cursor-pointer ${
             subTab === 'annual'
-              ? 'bg-teal-700 text-white shadow'
+              ? 'bg-teal-700 text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <span>🗓️</span>
-          <span>الخطة السنوية (32 أسبوعاً)</span>
+          <span className="sm:hidden">الخطة السنوية</span>
+          <span className="hidden sm:inline">الخطة السنوية (32 أسبوعاً)</span>
         </button>
       </div>
 
@@ -93,7 +98,7 @@ export const PlansStudio: React.FC<PlansStudioProps> = ({
         <AnnualPlanView
           subjectId={teacher.subject}
           grade={teacher.grade}
-          subjectTitle="العلوم - الصف الخامس الابتدائي"
+          subjectTitle={`${subjectNameAr} - الصف ${teacher.grade}`}
         />
       )}
     </div>

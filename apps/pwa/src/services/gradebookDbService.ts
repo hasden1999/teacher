@@ -370,8 +370,12 @@ export class GradebookDbService {
           if (g.component_homework !== undefined) matrix[g.student_id].component_homework = { score: g.component_homework, isAbsent: false };
           if (g.component_behavior !== undefined) matrix[g.student_id].component_behavior = { score: g.component_behavior, isAbsent: false };
           if (g.component_participation !== undefined) matrix[g.student_id].component_participation = { score: g.component_participation, isAbsent: false };
-          const dailyTotal = (g.component_oral || 0) + (g.component_written || 0) + (g.component_homework || 0) + (g.component_behavior || 0) + (g.component_participation || 0);
-          matrix[g.student_id].daily_total = { score: dailyTotal, isAbsent: false };
+          const hasComponent = g.component_oral !== undefined || g.component_written !== undefined ||
+            g.component_homework !== undefined || g.component_behavior !== undefined || g.component_participation !== undefined;
+          if (hasComponent) {
+            const dailyTotal = (g.component_oral || 0) + (g.component_written || 0) + (g.component_homework || 0) + (g.component_behavior || 0) + (g.component_participation || 0);
+            matrix[g.student_id].daily_total = { score: dailyTotal, isAbsent: false };
+          }
         }
         matrix[g.student_id][g.category] = { score: g.score, isAbsent: Boolean(g.is_absent) };
       }
@@ -382,7 +386,11 @@ export class GradebookDbService {
       );
       if (cached && cached[0] && cached[0].value) {
         const parsed = JSON.parse(cached[0].value);
-        return { ...parsed, ...matrix };
+        const merged: Record<string, Record<string, { score: number | null; isAbsent: boolean }>> = { ...parsed };
+        for (const [studentId, studentGrades] of Object.entries(matrix)) {
+          merged[studentId] = { ...(parsed[studentId] || {}), ...studentGrades };
+        }
+        return merged;
       }
     } catch {
       if (typeof localStorage !== 'undefined') {
@@ -434,7 +442,19 @@ export class GradebookDbService {
         updated_at: now,
       });
 
-      for (const cat of ['month_2', 'mid_term', 'annual_effort', 'final_exam'] as GradeCategory[]) {
+      const otherCategories: GradeCategory[] = [
+        'month_2',
+        'mid_term',
+        'semester_1_avg',
+        'month_3',
+        'month_4',
+        'semester_2_avg',
+        'annual_effort',
+        'final_exam',
+        'round_2',
+        'final_status',
+      ];
+      for (const cat of otherCategories) {
         if (studentGrades[cat]) {
           gradesToUpsert.push({
             id: `grd_${studentId}_${cat}`,

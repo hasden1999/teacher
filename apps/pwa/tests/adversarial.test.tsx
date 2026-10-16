@@ -606,7 +606,7 @@ describe('Adversarial Stress Test Suite: Milestone 3 Interactive Components', ()
   // 4. InAppEscapeModal & InstallGate Adversarial Resiliency
   // =========================================================================
   describe('Gate Modals: Storage Failures & Session Storage Resiliency', () => {
-    it('InstallGate does not crash when sessionStorage throws SecurityError', async () => {
+    it('InstallGate does not crash when Storage APIs throw SecurityError', async () => {
       const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
         throw new DOMException('Access denied in private/iframe context', 'SecurityError');
       });
@@ -619,27 +619,9 @@ describe('Adversarial Stress Test Suite: Milestone 3 Interactive Components', ()
         );
       });
 
-      // Renders modal without throwing unhandled exception
-      expect(container.textContent).toContain('مساعد المعلم العراقي');
-
-      // Dismiss button click when setItem also throws
-      const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-        throw new DOMException('Storage quota exceeded', 'QuotaExceededError');
-      });
-
-      const dismissBtn = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.textContent?.includes('المتابعة من المتصفح مؤقتاً')
-      );
-      expect(dismissBtn).toBeDefined();
-
-      await act(async () => {
-        dismissBtn?.click();
-      });
-
-      // Successfully bypassed to guarded content despite storage failure
+      // App always renders without throwing
       expect(container.querySelector('#guarded-content')).not.toBeNull();
       getItemSpy.mockRestore();
-      setItemSpy.mockRestore();
     });
 
     it('InAppEscapeModal handles clipboard copy failure gracefully', async () => {
@@ -767,19 +749,16 @@ describe('Adversarial Stress Test Suite: Milestone 3 Interactive Components', ()
         );
       });
 
-      // Initially shows gate
-      expect(container.textContent).toContain('مساعد المعلم العراقي');
+      // No install icon until the browser offers installation
+      expect(container.querySelector('button[aria-label="تثبيت التطبيق"]')).toBeNull();
 
       // Dispatch beforeinstallprompt
       await act(async () => {
         window.dispatchEvent(fakePromptEvent);
       });
 
-      // Look for install button
-      const installBtn = Array.from(container.querySelectorAll('button')).find(
-        (b) => b.textContent?.includes('تثبيت التطبيق على الهاتف الآن')
-      );
-      expect(installBtn).toBeDefined();
+      const installBtn = container.querySelector<HTMLButtonElement>('button[aria-label="تثبيت التطبيق"]');
+      expect(installBtn).not.toBeNull();
 
       // Click install
       await act(async () => {
@@ -787,7 +766,8 @@ describe('Adversarial Stress Test Suite: Milestone 3 Interactive Components', ()
       });
       expect(promptCalled).toBe(true);
 
-      // After user accepts prompt, app passes through to children
+      // After acceptance the icon disappears and the app stays available
+      expect(container.querySelector('button[aria-label="تثبيت التطبيق"]')).toBeNull();
       expect(container.querySelector('#installed-app')).not.toBeNull();
     });
   });

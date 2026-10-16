@@ -17,6 +17,7 @@ export type WorkerRequestType =
   | 'TRANSACTION'
   | 'BACKUP_CREATE'
   | 'BACKUP_RESTORE'
+  | 'BACKUP_LIST'
   | 'EXPORT_DB';
 
 export type WorkerRequest =
@@ -26,6 +27,7 @@ export type WorkerRequest =
   | { id: string; type: 'TRANSACTION'; payload: { statements: Array<{ sql: string; params?: unknown[] }> } }
   | { id: string; type: 'BACKUP_CREATE'; payload?: Record<string, unknown> }
   | { id: string; type: 'BACKUP_RESTORE'; payload: { backupData: ArrayBuffer } }
+  | { id: string; type: 'BACKUP_LIST'; payload?: Record<string, unknown> }
   | { id: string; type: 'EXPORT_DB'; payload?: Record<string, unknown> };
 
 export type WorkerResponse =

@@ -104,9 +104,23 @@ export const TeacherLoginModal: React.FC<TeacherLoginModalProps> = ({
       return;
     }
 
+    // Normalize eastern Arabic digits and remove hyphens/spaces
+    const normalizedPhone = phone
+      .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString())
+      .replace(/[\s-]/g, '');
+
+    const iraqiPhoneRegex = /^07[3-9]\d{8}$/;
+    if (!iraqiPhoneRegex.test(normalizedPhone)) {
+      showToast({
+        message: 'يرجى إدخال رقم هاتف عراقي صالح مكون من 11 رقماً يبدأ بـ 07 (مثال: 07701234567)',
+        type: 'error',
+      });
+      return;
+    }
+
     const saved = authService.saveTeacherProfile({
       fullName: fullName.trim(),
-      phone: phone.trim(),
+      phone: normalizedPhone,
       schoolName: schoolName.trim() || 'المدرسة',
       governorate,
       stage: parsedSelection.stage,

@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS grades (
     student_id TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     subject_id TEXT NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
     term_id TEXT NOT NULL REFERENCES academic_terms(id) ON DELETE CASCADE,
-    category TEXT NOT NULL CHECK (category IN ('month_1', 'month_2', 'mid_term', 'annual_effort', 'final_exam', 'round_2')),
+    category TEXT NOT NULL CHECK (category IN ('month_1', 'month_2', 'mid_term', 'semester_1_avg', 'month_3', 'month_4', 'semester_2_avg', 'annual_effort', 'final_exam', 'round_2', 'final_status')),
     mode TEXT NOT NULL DEFAULT 'simplified' CHECK (mode IN ('detailed', 'simplified')),
     score REAL,
     component_oral REAL DEFAULT 0,
@@ -195,6 +195,43 @@ export const MIGRATIONS: Migration[] = [
     description: 'Initial schema setup (12 core tables)',
     up: (db: any) => {
       db.exec(INITIAL_SCHEMA_DDL);
+    },
+  },
+  {
+    version: 2,
+    description: 'Expand grades category check constraint to include semester 2 months and final status',
+    up: (db: any) => {
+      try {
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS grades_v2 (
+            id TEXT PRIMARY KEY,
+            student_id TEXT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+            subject_id TEXT NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+            term_id TEXT NOT NULL REFERENCES academic_terms(id) ON DELETE CASCADE,
+            category TEXT NOT NULL CHECK (category IN ('month_1', 'month_2', 'mid_term', 'semester_1_avg', 'month_3', 'month_4', 'semester_2_avg', 'annual_effort', 'final_exam', 'round_2', 'final_status')),
+            mode TEXT NOT NULL DEFAULT 'simplified' CHECK (mode IN ('detailed', 'simplified')),
+            score REAL,
+            component_oral REAL DEFAULT 0,
+            component_written REAL DEFAULT 0,
+            component_homework REAL DEFAULT 0,
+            component_behavior REAL DEFAULT 0,
+            component_participation REAL DEFAULT 0,
+            is_absent INTEGER NOT NULL DEFAULT 0,
+            absence_excused INTEGER NOT NULL DEFAULT 0,
+            decision_points_applied INTEGER DEFAULT 0,
+            notes TEXT,
+            updated_at INTEGER NOT NULL
+          );
+          INSERT OR IGNORE INTO grades_v2 SELECT * FROM grades;
+          DROP TABLE grades;
+          ALTER TABLE grades_v2 RENAME TO grades;
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_student_subject_term_cat ON grades(student_id, subject_id, term_id, category);
+          CREATE INDEX IF NOT EXISTS idx_grades_student ON grades(student_id);
+          CREATE INDEX IF NOT EXISTS idx_grades_lookup ON grades(subject_id, term_id, category);
+        `);
+      } catch (err) {
+        console.warn('Migration 2 note:', err);
+      }
     },
   },
 ];

@@ -11,6 +11,7 @@ import { useBatchRollback } from './useBatchRollback.js';
 import { useToast } from '../common/Toast.js';
 import { excelService } from '../../services/excelService.js';
 import { gradebookDbService } from '../../services/gradebookDbService.js';
+import { authService } from '../../services/authService.js';
 import type {
   StudentRowItem,
   GradeColumnDef,
@@ -434,7 +435,7 @@ export const GradebookStudio: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsVoiceModalOpen(true)}
-            className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow"
+            className="hidden md:flex min-h-[44px] px-3.5 py-1.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition items-center gap-1.5 shadow"
           >
             <span>🎙️</span>
             <span>إدخال الدرجات بالصوت</span>
@@ -507,7 +508,7 @@ export const GradebookStudio: React.FC = () => {
         <>
           {/* Main View: Mobile Cards or Virtual Table */}
           {viewType === 'cards' ? (
-            <div className="md:hidden">
+            <div className="md:hidden pb-28">
               <MobileStudentCardsView
                 students={students}
                 grades={grades}
@@ -577,29 +578,33 @@ export const GradebookStudio: React.FC = () => {
       )}
 
       {/* Student Evaluation Card Modal */}
-      {selectedStudentForCard && (
-        <StudentCardModal
-          isOpen={true}
-          onClose={() => setSelectedStudentForCard(null)}
-          student={{
-            id: selectedStudentForCard.id,
-            division_id: 'div_1',
-            full_name: selectedStudentForCard.fullName,
-            gender: selectedStudentForCard.gender || 'male',
-            roll_number: selectedStudentForCard.rollNumber,
-            is_active: 1,
-            guardian_phone: selectedStudentForCard.guardianPhone || null,
-            notes: selectedStudentForCard.notes || null,
-            created_at: Date.now(),
-          }}
-          className="الخامس العلمي"
-          divisionName={activeDivision}
-          subjectName="العلوم"
-          academicYear="2026-2027"
-          schoolName="مدرسة الأمل"
-          teacherName="الأستاذ"
-        />
-      )}
+      {selectedStudentForCard && (() => {
+        const profile = authService.getTeacherProfile();
+        return (
+          <StudentCardModal
+            isOpen={true}
+            onClose={() => setSelectedStudentForCard(null)}
+            student={{
+              id: selectedStudentForCard.id,
+              division_id: divisionId,
+              full_name: selectedStudentForCard.fullName,
+              gender: selectedStudentForCard.gender || 'male',
+              roll_number: selectedStudentForCard.rollNumber,
+              is_active: 1,
+              guardian_phone: selectedStudentForCard.guardianPhone || null,
+              notes: selectedStudentForCard.notes || null,
+              created_at: Date.now(),
+            }}
+            grades={grades[selectedStudentForCard.id]}
+            className={profile?.stage ? `${profile.stage === 'primary' ? 'المرحلة الابتدائية' : profile.stage === 'intermediate' ? 'المرحلة المتوسطة' : 'المرحلة الإعدادية'} - الصف ${profile.grade}` : 'الصف الدراسي'}
+            divisionName={activeDivision}
+            subjectName={profile?.subject || 'المادة'}
+            academicYear="2026-2027"
+            schoolName={profile?.schoolName || 'المدرسة'}
+            teacherName={profile?.fullName || 'الأستاذ'}
+          />
+        );
+      })()}
 
       {/* Voice Grade Entry Modal */}
       {isVoiceModalOpen && (

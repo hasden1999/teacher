@@ -51,6 +51,10 @@ export const VoiceGradeEntryModal: React.FC<VoiceGradeEntryModalProps> = ({
   const [aiStatusMessage, setAiStatusMessage] = useState<string>('');
   const [matches, setMatches] = useState<ParsedMatchItem[]>([]);
   const [audioLevels, setAudioLevels] = useState<number[]>([15, 25, 45, 60, 30, 20, 10]);
+  const [hasPrivacyConsent, setHasPrivacyConsent] = useState<boolean>(() => {
+    return typeof localStorage !== 'undefined' && localStorage.getItem('techeeer_voice_consent_accepted') === 'true';
+  });
+  const [consentHighlight, setConsentHighlight] = useState<boolean>(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -108,6 +112,12 @@ export const VoiceGradeEntryModal: React.FC<VoiceGradeEntryModalProps> = ({
 
   // Start Real Microphone Recording
   const startRecording = async () => {
+    if (!hasPrivacyConsent) {
+      setConsentHighlight(true);
+      showToast({ message: 'يرجى الموافقة على إقرار خصوصية التسجيل الصوتي قبل البدء', type: 'error' });
+      return;
+    }
+
     try {
       cleanupRecording();
       setAudioUrl(null);
@@ -561,6 +571,38 @@ ${JSON.stringify(studentsRosterSummary, null, 2)}
                 'الذكاء الاصطناعي مدرب على اللهجة العراقية والأرقام ("ثمنطعش"، "دعش"، "فول").'
               )}
             </p>
+
+            {/* Privacy Consent Agreement */}
+            <div
+              className={`w-full max-w-sm mt-3 p-2.5 rounded-xl border text-xs text-start transition-all ${
+                consentHighlight && !hasPrivacyConsent
+                  ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 ring-2 ring-amber-400 animate-pulse'
+                  : 'border-teal-100 dark:border-teal-900/40 bg-white/80 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={hasPrivacyConsent}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setHasPrivacyConsent(checked);
+                    setConsentHighlight(false);
+                    if (typeof localStorage !== 'undefined') {
+                      if (checked) {
+                        localStorage.setItem('techeeer_voice_consent_accepted', 'true');
+                      } else {
+                        localStorage.removeItem('techeeer_voice_consent_accepted');
+                      }
+                    }
+                  }}
+                  className="mt-0.5 w-4 h-4 rounded text-teal-700 focus:ring-teal-500 cursor-pointer"
+                />
+                <span className="text-[11px] leading-relaxed">
+                  <strong>إقرار الخصوصية:</strong> أوافق على معالجة التسجيل الصوتي محلياً لرصد الدرجات، علماً أن التسجيل يُعالج فورياً ولا يُخزن في أي خوادم خارجية حفاظاً على خصوصية الطلاب.
+                </span>
+              </label>
+            </div>
           </div>
 
           {/* AI Processing Banner */}

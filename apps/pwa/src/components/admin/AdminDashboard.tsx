@@ -524,7 +524,7 @@ export const AdminDashboard: React.FC = () => {
 
                 <div className="pt-2 text-center">
                   <p className="text-[11px] text-slate-500">
-                    رمز المرور الافتراضي الأولي للمشروع: <code className="text-teal-400 font-mono">techeeer-admin-secure</code>
+                    بوابة الإدارة المركزية لمشروع مساعد المعلم العراقي
                   </p>
                 </div>
               </form>
@@ -562,7 +562,7 @@ export const AdminDashboard: React.FC = () => {
                   <span>Gemini Vision OCR: متصل</span>
                 </div>
                 <span className="text-[11px] text-slate-400 font-mono truncate block">
-                  {(getActiveGeminiApiKey() || 'مضبوط').substring(0, 14)}...
+                  {getActiveGeminiApiKey() ? '••••••••••••••••' : 'غير مضبوط'}
                 </span>
               </div>
             </div>
@@ -1082,7 +1082,8 @@ export const AdminDashboard: React.FC = () => {
                         مفتاح Gemini API النشط:
                       </label>
                       <input
-                        type="text"
+                        type="password"
+                        placeholder="أدخل مفتاح Gemini API المركزي..."
                         value={currentGeminiKey}
                         onChange={(e) => setCurrentGeminiKey(e.target.value)}
                         className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-teal-300 focus:border-teal-500 focus:outline-none"

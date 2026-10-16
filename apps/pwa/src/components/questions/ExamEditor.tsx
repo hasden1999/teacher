@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import {
   parseExamPaperAST,
   serializeExamPaperAST,
@@ -66,14 +66,39 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
   // Initialize AST state
   const [ast, setAst] = useState<ExamPaperAST>(() => {
     if (initialAST) return initialAST;
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('techeeer_exam_draft_ast');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {}
+      }
+    }
     return parseExamPaperAST(initialText || DEFAULT_RAW_TEXT);
   });
 
   const [rawText, setRawText] = useState<string>(() => {
     if (initialText) return initialText;
     if (initialAST) return serializeExamPaperAST(initialAST);
+    if (typeof localStorage !== 'undefined') {
+      const savedAst = localStorage.getItem('techeeer_exam_draft_ast');
+      if (savedAst) {
+        try {
+          return serializeExamPaperAST(JSON.parse(savedAst));
+        } catch {}
+      }
+    }
     return DEFAULT_RAW_TEXT;
   });
+
+  // Auto-save exam draft to local storage so teacher work is never lost
+  useEffect(() => {
+    if (typeof localStorage !== 'undefined' && ast) {
+      try {
+        localStorage.setItem('techeeer_exam_draft_ast', JSON.stringify(ast));
+      } catch {}
+    }
+  }, [ast]);
 
   const [mode, setMode] = useState<EditorMode>('structured');
   const [activeMobileView, setActiveMobileView] = useState<'editor' | 'preview'>('editor');
@@ -776,6 +801,7 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
             ref={printSheetRef}
             paper={ast}
             twoColumnLayout={twoColumnLayout}
+            typography={typography}
             onPrint={handleTriggerPrint}
             onExportPdf={handleExportPdf}
             onExportImage={handleExportImage}

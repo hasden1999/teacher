@@ -5,6 +5,10 @@ import { MathRenderer } from './MathRenderer.js';
 export interface ExamPrintViewProps {
   paper: ExamPaperAST;
   twoColumnLayout?: boolean;
+  typography?: {
+    fontFamily: 'Amiri' | 'Tajawal';
+    scale: 'small' | 'medium' | 'large';
+  };
   watermarkText?: string;
   showModelAnswer?: boolean;
   scale?: number;
@@ -17,6 +21,7 @@ export interface ExamPrintViewProps {
 export const ExamPrintView = forwardRef<HTMLDivElement, ExamPrintViewProps>(({
   paper,
   twoColumnLayout = false,
+  typography,
   watermarkText = 'جمهورية العراق - وزارة التربية',
   className = '',
   onPrint,
@@ -73,7 +78,11 @@ export const ExamPrintView = forwardRef<HTMLDivElement, ExamPrintViewProps>(({
         ref={ref}
         id="exam-print-sheet"
         dir="rtl"
-        className="w-full max-w-[210mm] min-h-[297mm] p-[15mm] bg-white text-slate-950 font-amiri shadow-xl print:shadow-none print:w-full print:max-w-none print:min-h-0 print:p-0 relative flex flex-col justify-between selection:bg-teal-100 border border-slate-200 print:border-none"
+        className={`w-full max-w-[210mm] min-h-[297mm] p-[15mm] bg-white text-slate-950 ${
+          typography?.fontFamily === 'Tajawal' ? 'font-tajawal' : 'font-amiri'
+        } ${
+          typography?.scale === 'small' ? 'text-xs' : typography?.scale === 'large' ? 'text-base' : 'text-sm'
+        } shadow-xl print:shadow-none print:w-full print:max-w-none print:min-h-0 print:p-0 relative flex flex-col justify-between selection:bg-teal-100 border border-slate-200 print:border-none`}
         style={{
           boxSizing: 'border-box',
         }}

@@ -228,7 +228,13 @@ export async function handleWorkerRequest(
         const rowsAffected = db.changes ? db.changes() : 0;
 
         if (isMutationSql(req.payload.sql) && backupEngine) {
-          await backupEngine.recordMutation(1);
+          let exportData: Uint8Array | undefined;
+          if (sqlite3?.capi && db?.pointer) {
+            try {
+              exportData = sqlite3.capi.sqlite3_js_db_export(db.pointer);
+            } catch {}
+          }
+          await backupEngine.recordMutation(1, exportData);
         }
         return { id: req.id, success: true, data: { rowsAffected } };
       }
@@ -349,6 +355,11 @@ export async function handleWorkerRequest(
           return { id: req.id, success: false, error: `${stage}: ${headerRes.reason}` };
         }
         return { id: req.id, success: true, data: { restored: true } };
+      }
+
+      case 'BACKUP_LIST': {
+        const slots = backupEngine ? backupEngine.getSnapshots() : [];
+        return { id: req.id, success: true, data: { slots } };
       }
 
       case 'EXPORT_DB': {

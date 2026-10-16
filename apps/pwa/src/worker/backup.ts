@@ -220,10 +220,10 @@ export class BackupEngine {
     }
   }
 
-  async recordMutation(count: number = 1): Promise<BackupSnapshot | null> {
+  async recordMutation(count: number = 1, customData?: Uint8Array): Promise<BackupSnapshot | null> {
     const triggered = this.tracker.recordMutation(count);
     if (triggered) {
-      return this.createSnapshot('auto_mutations');
+      return this.createSnapshot('auto_mutations', customData);
     }
     await this.saveManifestState();
     return null;

@@ -69,7 +69,51 @@ export const AnnualPlanView: React.FC<AnnualPlanViewProps> = ({
       </div>
 
       {/* 2. Weeks Grid / Table */}
-      <div className="overflow-x-auto">
+      {/* Mobile Weekly Cards (< md) */}
+      <div className="md:hidden p-3 space-y-2.5">
+        {semesterWeeks.map((week) => {
+          const isExamWeek = week.week === 16 || week.week === 32;
+          return (
+            <div
+              key={week.week}
+              className={`p-3.5 rounded-2xl border text-xs space-y-2 ${
+                isExamWeek
+                  ? 'bg-amber-50/80 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800'
+                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-xs'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black ${
+                      isExamWeek
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-teal-100 text-teal-900 dark:bg-teal-950 dark:text-teal-200'
+                    }`}
+                  >
+                    {week.week}
+                  </span>
+                  <span className="font-extrabold text-slate-900 dark:text-slate-100">
+                    الأسبوع {week.week}: {week.unit}
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded-md">
+                  {week.periodsPerWeek} حصص
+                </span>
+              </div>
+              <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                {week.chapterTitle}
+              </p>
+              <div className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl">
+                {week.topics.join(' — ')}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop Weeks Table (>= md) */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-start text-xs border-collapse">
           <thead>
             <tr className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold">

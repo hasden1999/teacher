@@ -44,7 +44,7 @@ describe('React Component Interactive Rendering Suite', () => {
       expect(container.textContent).toContain('Child Application Content');
     });
 
-    it('renders installation prompt modal when forcedDisplayMode is browser', async () => {
+    it('shows no install icon in browser mode until the browser offers installation', async () => {
       await act(async () => {
         root.render(
           <InstallGate forcedDisplayMode="browser">
@@ -53,12 +53,11 @@ describe('React Component Interactive Rendering Suite', () => {
         );
       });
 
-      expect(container.textContent).toContain('مساعد المعلم العراقي');
-      expect(container.textContent).toContain('المنظومة التعليمية المستقلة');
-      expect(container.textContent).toContain('المتابعة من المتصفح مؤقتاً');
+      expect(container.querySelector('#test-child')).not.toBeNull();
+      expect(container.querySelector('button[aria-label="تثبيت التطبيق"]')).toBeNull();
     });
 
-    it('renders iOS instructions when platform is iOS', async () => {
+    it('shows a single install icon on iOS and reveals a short hint on tap', async () => {
       const iosUa = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1';
       await act(async () => {
         root.render(
@@ -68,7 +67,11 @@ describe('React Component Interactive Rendering Suite', () => {
         );
       });
 
-      expect(container.textContent).toContain('طريقة التثبيت على أجهزة iPhone / iPad');
+      const btn = container.querySelector<HTMLButtonElement>('button[aria-label="تثبيت التطبيق"]');
+      expect(btn).not.toBeNull();
+      await act(async () => {
+        btn?.click();
+      });
       expect(container.textContent).toContain('إضافة إلى الشاشة الرئيسية');
     });
   });

@@ -172,6 +172,16 @@ export class DbClient {
   }
 
   /**
+   * List 7-slot rolling backup snapshots from OPFS.
+   */
+  public async listBackups(): Promise<{ slots: Array<{ slot: number; filename: string; timestamp: number; sizeBytes: number; trigger: string }> }> {
+    return this.sendRequest<{ slots: Array<{ slot: number; filename: string; timestamp: number; sizeBytes: number; trigger: string }> }>({
+      type: 'BACKUP_LIST',
+      payload: {},
+    });
+  }
+
+  /**
    * Send typed request message with UUID matching and timeout rejection.
    */
   private sendRequest<T>(reqWithoutId: Omit<WorkerRequest, 'id'>): Promise<T> {

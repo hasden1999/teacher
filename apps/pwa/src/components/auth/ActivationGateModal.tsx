@@ -3,6 +3,7 @@ import {
   authService,
   SUBSCRIPTION_TIERS,
   SubscriptionTier,
+  SUPPORT_PHONE_NUMBER,
 } from '../../services/authService.js';
 import { useToast } from '../common/Toast.js';
 
@@ -53,7 +54,8 @@ export const ActivationGateModal: React.FC<ActivationGateModalProps> = ({
   };
 
   const currentTeacher = authService.getTeacherProfile();
-  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(
+  const supportPhoneClean = SUPPORT_PHONE_NUMBER.replace(/^0/, '');
+  const whatsappUrl = `https://wa.me/964${supportPhoneClean}?text=${encodeURIComponent(
     `السلام عليكم ورحمة الله، أرغب بتفعيل تطبيق مساعد المعلم العراقي.\nاسم المعلم: ${currentTeacher?.fullName || 'معلم'}\nرقم الهاتف: ${currentTeacher?.phone || ''}\nالباقة المطلوبة: ${
       SUBSCRIPTION_TIERS.find((t) => t.id === selectedTier)?.labelAr || 'تفعيل'
     }`

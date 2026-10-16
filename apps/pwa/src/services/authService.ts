@@ -582,12 +582,27 @@ export const authService = {
 
     // 3. Assemble active license record
     const payload = verifyResult.payload;
+
+    // Strict phone match validation: prevent one license from being shared across multiple teachers
+    const profile = this.getTeacherProfile();
+    const cleanRegisteredPhone = (teacherPhone || profile?.phone || '').replace(/\D/g, '');
+    if (cleanRegisteredPhone && payload.teacherId && payload.teacherId.startsWith('iq_teacher_')) {
+      const phoneSuffix = cleanRegisteredPhone.slice(-6);
+      if (!payload.teacherId.includes(phoneSuffix)) {
+        return {
+          success: false,
+          message: 'رمز التفعيل هذا مخصص لمعلم أو هاتف آخر ولا يطابق رقم هاتفك المسجل.',
+          errorCode: 'INVALID_SIGNATURE',
+        };
+      }
+    }
+
     const record: ActiveLicenseRecord = {
       key: cleanToken,
       tier: (payload.tier as SubscriptionTier) || 'annual',
       activatedAt: Date.now(),
       expiresAt: payload.expiresAt,
-      teacherPhone: teacherPhone || this.getTeacherProfile()?.phone || '',
+      teacherPhone: teacherPhone || profile?.phone || '',
       teacherName: payload.teacherName,
       payload,
     };
@@ -669,7 +684,7 @@ export const authService = {
    */
   getAdminLockoutInfo(): AdminLockoutInfo {
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEY_ADMIN_LOCKOUT);
+      const raw = sessionStorage.getItem(STORAGE_KEY_ADMIN_LOCKOUT) ?? localStorage.getItem(STORAGE_KEY_ADMIN_LOCKOUT);
       if (!raw) {
         return { isLocked: false, remainingMs: 0, remainingSeconds: 0, remainingMinutes: 0, failedAttempts: 0 };
       }
@@ -717,6 +732,7 @@ export const authService = {
 
     if (computedHash === storedHash) {
       // Success: clear lockout and set cryptographically random UUID session with 30-min expiry
+      localStorage.removeItem(STORAGE_KEY_ADMIN_LOCKOUT);
       sessionStorage.removeItem(STORAGE_KEY_ADMIN_LOCKOUT);
       const sessionToken =
         typeof crypto !== 'undefined' && crypto.randomUUID
@@ -737,10 +753,9 @@ export const authService = {
       lockedUntil = now + LOCKOUT_DURATION_MS;
     }
 
-    sessionStorage.setItem(
-      STORAGE_KEY_ADMIN_LOCKOUT,
-      JSON.stringify({ failedAttempts, lockedUntil })
-    );
+    const lockoutPayload = JSON.stringify({ failedAttempts, lockedUntil });
+    localStorage.setItem(STORAGE_KEY_ADMIN_LOCKOUT, lockoutPayload);
+    sessionStorage.setItem(STORAGE_KEY_ADMIN_LOCKOUT, lockoutPayload);
 
     return false;
   },

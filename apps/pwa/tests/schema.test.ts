@@ -76,7 +76,7 @@ describe('SQLite Database Schema & Migrations', () => {
   it('should skip previously applied migrations idempotently', () => {
     const mockDb = {
       exec: vi.fn(),
-      selectObjects: vi.fn(() => [{ version: 1 }]), // Version 1 already applied
+      selectObjects: vi.fn(() => [{ version: 1 }, { version: 2 }]), // Versions 1 and 2 already applied
     };
 
     runMigrations(mockDb);
