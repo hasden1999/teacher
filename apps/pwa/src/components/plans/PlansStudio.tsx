@@ -23,7 +23,7 @@ export const PlansStudio: React.FC<PlansStudioProps> = ({
     subject: 'science_primary',
     stage: 'primary',
     grade: 5,
-    secondarySubjects: ['physics_scientific', 'chemistry_scientific'],
+    secondarySubjects: [],
   },
 }) => {
   const [subTab, setSubTab] = useState<'daily' | 'tracker' | 'annual'>('daily');

@@ -56,12 +56,14 @@ export const CANONICAL_GRADE_COLUMNS: GradeColumnDef[] = [
   // امتحانات الفصل الأول
   { key: 'month_1', label: 'الشهر الأول', maxScore: 100, minScore: 0, category: 'exam', isEditable: true, width: 90 },
   { key: 'month_2', label: 'الشهر الثاني', maxScore: 100, minScore: 0, category: 'exam', isEditable: true, width: 90 },
+  { key: 'semester_1_avg', label: 'سعي الفصل الأول', shortLabel: 'سعي 1', maxScore: 100, minScore: 0, category: 'effort', isEditable: false, isComputed: true, width: 105 },
   { key: 'mid_term', label: 'نصف السنة', maxScore: 100, minScore: 0, category: 'exam', isEditable: true, width: 95 },
 
   // امتحانات الفصل الثاني والسعي السنوي
   { key: 'month_3', label: 'الشهر الثالث', maxScore: 100, minScore: 0, category: 'exam', isEditable: true, width: 90 },
   { key: 'month_4', label: 'الشهر الرابع', maxScore: 100, minScore: 0, category: 'exam', isEditable: true, width: 90 },
-  { key: 'annual_effort', label: 'السعي السنوي', maxScore: 100, minScore: 0, category: 'effort', isEditable: false, isComputed: true, width: 100 },
+  { key: 'semester_2_avg', label: 'سعي الفصل الثاني', shortLabel: 'سعي 2', maxScore: 100, minScore: 0, category: 'effort', isEditable: false, isComputed: true, width: 105 },
+  { key: 'annual_effort', label: 'السعي السنوي', shortLabel: 'السعي', maxScore: 100, minScore: 0, category: 'effort', isEditable: false, isComputed: true, width: 105 },
   { key: 'final_exam', label: 'الامتحان النهائي', maxScore: 100, minScore: 0, category: 'final', isEditable: true, width: 100 },
   { key: 'final_status', label: 'النتيجة', maxScore: 100, minScore: 0, category: 'final', isEditable: false, isComputed: true, width: 85 },
 ];

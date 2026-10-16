@@ -5,7 +5,7 @@ export interface ExtractedFormulas {
   chemistry: string[];
 }
 
-export type SymbolCategory = 'basic' | 'advanced' | 'chemistry' | 'symbols';
+export type SymbolCategory = 'basic' | 'advanced' | 'sets' | 'physics' | 'chemistry' | 'symbols';
 
 export interface MathSymbolItem {
   id: string;

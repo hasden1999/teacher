@@ -9,7 +9,7 @@
  * Plus Supervisory Inspection block, Template picker, and 35-50 min duration validation.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { DailyLessonPlan, TeacherProfile } from '@techeeer/content';
 import {
   LESSON_TEMPLATES,
@@ -31,7 +31,7 @@ export const LessonPlanEditor: React.FC<LessonPlanEditorProps> = ({
     subject: 'science_primary',
     stage: 'primary',
     grade: 5,
-    secondarySubjects: ['physics_scientific', 'chemistry_scientific'],
+    secondarySubjects: [],
   },
   initialPlan,
   onSave,
@@ -50,6 +50,24 @@ export const LessonPlanEditor: React.FC<LessonPlanEditorProps> = ({
     teachingAids: defaultPlan.teachingAids ? [...defaultPlan.teachingAids] : [],
     teachingStrategies: defaultPlan.teachingStrategies ? [...defaultPlan.teachingStrategies] : [],
   });
+
+  // Auto-synchronize when teacher subject or profile changes
+  useEffect(() => {
+    const updatedMatching = filterCurriculumForTeacher(teacher, LESSON_TEMPLATES);
+    if (updatedMatching.length > 0 && currentPlan.subjectId !== teacher.subject) {
+      const match = updatedMatching[0];
+      setCurrentPlan({
+        ...match,
+        id: `lp_${Date.now()}`,
+        objectives: [...match.objectives],
+        cognitiveObjectives: match.cognitiveObjectives ? [...match.cognitiveObjectives] : [],
+        affectiveObjectives: match.affectiveObjectives ? [...match.affectiveObjectives] : [],
+        psychomotorObjectives: match.psychomotorObjectives ? [...match.psychomotorObjectives] : [],
+        teachingAids: match.teachingAids ? [...match.teachingAids] : [],
+        teachingStrategies: match.teachingStrategies ? [...match.teachingStrategies] : [],
+      });
+    }
+  }, [teacher]);
 
   const [scheduledDate, setScheduledDate] = useState<string>(
     new Date().toISOString().split('T')[0]

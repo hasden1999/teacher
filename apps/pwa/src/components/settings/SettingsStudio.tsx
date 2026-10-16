@@ -16,6 +16,7 @@ import {
   authService,
   SUPPORT_PHONE_NUMBER,
   SUBSCRIPTION_TIERS,
+  type AssignedClass,
 } from '../../services/authService.js';
 import { ActivationGateModal } from '../auth/ActivationGateModal.js';
 import { getStoredTheme, setAppTheme, type AppTheme } from '../../utils/theme.js';
@@ -62,12 +63,21 @@ export const STAGES_CONFIG = [
   },
 ];
 
+export function getGradeDisplayLabel(stage: string, grade: number, stream: string): string {
+  const config = STAGES_CONFIG.find(s => s.stage === stage);
+  if (config) {
+    const found = config.grades.find(g => g.grade === grade && (g as { stream?: string }).stream === stream);
+    if (found) return found.label;
+  }
+  return `الصف ${grade}`;
+}
+
 export const SettingsStudio: React.FC<SettingsStudioProps> = ({
   teacher = {
     subject: 'science_primary',
     stage: 'primary',
     grade: 5,
-    secondarySubjects: ['physics_scientific'],
+    secondarySubjects: [],
   },
   onTeacherChange,
 }) => {
@@ -125,14 +135,81 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
     }
   }, [availableSubjects, selectedSubject]);
 
+  // Multiple Assigned Classes State
+  const [assignedClasses, setAssignedClasses] = useState<AssignedClass[]>(
+    () => savedProfile?.assignedClasses || []
+  );
+  const [newClassGradeKey, setNewClassGradeKey] = useState<string>('primary_5_general');
+  const [newClassSubject, setNewClassSubject] = useState<string>('');
+  const [newClassDivision, setNewClassDivision] = useState<string>('أ');
+
+  const newClassParsed = useMemo(() => {
+    const parts = newClassGradeKey.split('_');
+    const stage = parts[0] as 'primary' | 'intermediate' | 'preparatory';
+    const grade = parseInt(parts[1], 10) || 5;
+    const stream = (parts[2] || 'general') as 'general' | 'scientific' | 'literary';
+    return { stage, grade, stream };
+  }, [newClassGradeKey]);
+
+  const newClassAvailableSubjects = useMemo(() => {
+    return getSubjectsByStageAndGrade(
+      newClassParsed.stage,
+      newClassParsed.grade,
+      newClassParsed.stream
+    );
+  }, [newClassParsed]);
+
+  useEffect(() => {
+    if (newClassAvailableSubjects.length > 0) {
+      setNewClassSubject(newClassAvailableSubjects[0].id);
+    }
+  }, [newClassAvailableSubjects]);
+
+  const { showToast } = useToast();
+
+  const handleAddClass = () => {
+    const subObj = newClassAvailableSubjects.find(s => s.id === newClassSubject);
+    const grdLbl = getGradeDisplayLabel(newClassParsed.stage, newClassParsed.grade, newClassParsed.stream);
+    const label = `${grdLbl} - ${subObj?.nameAr || newClassSubject}`;
+
+    const newCls: AssignedClass = {
+      id: `cls_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      stage: newClassParsed.stage,
+      grade: newClassParsed.grade,
+      stream: newClassParsed.stream,
+      subject: newClassSubject,
+      label,
+      division: newClassDivision.trim() || 'أ',
+    };
+
+    const nextList = [...assignedClasses, newCls];
+    setAssignedClasses(nextList);
+
+    // Save immediately to persistent storage
+    authService.saveTeacherProfile({
+      assignedClasses: nextList,
+    });
+
+    showToast({ message: `تمت إضافة الصف: ${label}`, type: 'success' });
+  };
+
+  const handleRemoveClass = (id: string) => {
+    const nextList = assignedClasses.filter(c => c.id !== id);
+    setAssignedClasses(nextList);
+
+    authService.saveTeacherProfile({
+      assignedClasses: nextList,
+    });
+
+    showToast({ message: 'تم إزالة الصف من قائمة التدريس', type: 'info' });
+  };
+
   // Modals state
   const [isActivationModalOpen, setIsActivationModalOpen] = useState(false);
 
   // Live trial & license state
   const trialStatus = authService.getTrialStatus();
   const activeLicense = authService.getActiveLicense();
-
-  const { showToast } = useToast();
 
   const handleSaveProfile = () => {
     authService.saveTeacherProfile({
@@ -144,6 +221,7 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
       grade: parsedSelection.grade,
       stream: parsedSelection.stream,
       subject: selectedSubject,
+      assignedClasses,
     });
 
     if (onTeacherChange) {
@@ -156,7 +234,7 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
       });
     }
 
-    showToast({ message: 'تم حفظ بيانات المعلم والتخصص الدراسي محلياً بنجاح', type: 'success' });
+    showToast({ message: 'تم حفظ بيانات المعلم وكافة الصفوف المسندة بنجاح', type: 'success' });
   };
 
   const whatsappUrl = `https://wa.me/964${SUPPORT_PHONE_NUMBER.replace(/^0/, '')}?text=${encodeURIComponent(
@@ -282,12 +360,163 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
           </div>
         </div>
 
+        {/* Multi-Class Assignment Section */}
+        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <span>🏫</span>
+                <span>الصفوف والشعب المسندة للمدرس (تدريس أكثر من صف)</span>
+              </h3>
+              <p className="text-xs text-slate-500">
+                أضف كافة المراحل والشعب التي تدرسها لتتمكن من التبديل بينها ومتابعة درجاتها وخططها بسهولة
+              </p>
+            </div>
+            <span className="text-xs px-2.5 py-1 rounded-full bg-teal-50 dark:bg-slate-800 text-teal-800 dark:text-teal-300 font-bold border border-teal-200 dark:border-teal-900">
+              {assignedClasses.length + 1} صفوف مسندة
+            </span>
+          </div>
+
+          {/* Assigned Classes List */}
+          <div className="space-y-2">
+            {/* Primary active class */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-teal-700 text-white">الصف الأساسي</span>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  {getGradeDisplayLabel(parsedSelection.stage, parsedSelection.grade, parsedSelection.stream)}
+                  {' - '}
+                  {availableSubjects.find(s => s.id === selectedSubject)?.nameAr || selectedSubject}
+                </span>
+              </div>
+              <span className="text-xs text-teal-800 dark:text-teal-300 font-semibold">نشط حالياً</span>
+            </div>
+
+            {/* Additional assigned classes */}
+            {assignedClasses.map((cls) => (
+              <div
+                key={cls.id}
+                className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 transition hover:border-slate-300"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                    صف إضافي
+                  </span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    {cls.label}
+                  </span>
+                  {cls.division && (
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 font-mono">
+                      شعبة {cls.division}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedGradeKey(`${cls.stage}_${cls.grade}_${cls.stream}`);
+                      setSelectedSubject(cls.subject);
+                      showToast({ message: `تم تفعيل ${cls.label} كصف أساسي`, type: 'info' });
+                    }}
+                    className="min-h-[36px] px-2.5 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold transition cursor-pointer"
+                    title="التعيين كصف أساسي نشط"
+                  >
+                    تعيين كنشط
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveClass(cls.id)}
+                    className="min-h-[36px] px-2 rounded-lg text-red-600 hover:bg-red-50 text-xs font-bold transition cursor-pointer"
+                    title="حذف هذا الصف"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Add Additional Class Form */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-teal-300 dark:border-teal-800 space-y-3">
+            <span className="text-xs font-bold text-teal-900 dark:text-teal-300 block">
+              ➕ إضافة صف آخر لقائمتك التدريسية:
+            </span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                  المرحلة والصف:
+                </label>
+                <select
+                  value={newClassGradeKey}
+                  onChange={(e) => setNewClassGradeKey(e.target.value)}
+                  className="w-full min-h-[40px] px-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold"
+                >
+                  {STAGES_CONFIG.map((stg) => (
+                    <optgroup key={stg.stage} label={`--- ${stg.label} ---`}>
+                      {stg.grades.map((grd) => (
+                        <option
+                          key={`${stg.stage}_${grd.grade}_${grd.stream}`}
+                          value={`${stg.stage}_${grd.grade}_${grd.stream}`}
+                        >
+                          {grd.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                  المادة المعتمدة:
+                </label>
+                <select
+                  value={newClassSubject}
+                  onChange={(e) => setNewClassSubject(e.target.value)}
+                  className="w-full min-h-[40px] px-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-teal-900 dark:text-teal-200"
+                >
+                  {newClassAvailableSubjects.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.nameAr}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                  الشعبة (اختياري):
+                </label>
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={newClassDivision}
+                    onChange={(e) => setNewClassDivision(e.target.value)}
+                    placeholder="أ، ب، ج..."
+                    className="w-full min-h-[40px] px-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-center font-bold"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddClass}
+                    className="min-h-[40px] px-3.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-white font-bold text-xs whitespace-nowrap shadow-xs cursor-pointer active:scale-95 transition"
+                  >
+                    إضافة +
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <button
           type="button"
           onClick={handleSaveProfile}
-          className="min-h-[44px] px-6 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow transition"
+          className="min-h-[44px] px-6 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow transition cursor-pointer"
         >
-          حفظ التغييرات
+          حفظ التغييرات وكافة الصفوف المسندة ✓
         </button>
       </div>
 

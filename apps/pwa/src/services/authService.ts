@@ -115,6 +115,16 @@ const STORAGE_KEY_ADMIN_PIN_HASH = 'techeeer_admin_pin_hash';
 const STORAGE_KEY_CLOCK_HWM = 'techeeer_clock_hwm';
 const STORAGE_KEY_DEVICE_SALT = 'techeeer_device_salt';
 
+export interface AssignedClass {
+  id: string;
+  stage: 'primary' | 'intermediate' | 'preparatory';
+  grade: number;
+  stream: 'general' | 'scientific' | 'literary';
+  subject: string;
+  label: string;
+  division?: string;
+}
+
 export interface TeacherAccount {
   id: string;
   fullName: string;
@@ -125,6 +135,7 @@ export interface TeacherAccount {
   grade: number;
   stream: 'general' | 'scientific' | 'literary';
   subject: string;
+  assignedClasses?: AssignedClass[];
   registeredAt: number;
 }
 
@@ -381,6 +392,7 @@ export const authService = {
       grade: profile.grade || existing?.grade || 5,
       stream: profile.stream || existing?.stream || 'general',
       subject: profile.subject || existing?.subject || 'science_primary',
+      assignedClasses: profile.assignedClasses !== undefined ? profile.assignedClasses : (existing?.assignedClasses || []),
       registeredAt: existing?.registeredAt || now,
     };
 

@@ -61,14 +61,14 @@ export const AppContent: React.FC = () => {
         stage: saved.stage,
         grade: saved.grade,
         stream: saved.stream,
-        secondarySubjects: ['physics_scientific', 'chemistry_scientific'],
+        secondarySubjects: [],
       };
     }
     return {
       subject: 'science_primary',
       stage: 'primary',
       grade: 5,
-      secondarySubjects: ['physics_scientific', 'chemistry_scientific'],
+      secondarySubjects: [],
     };
   });
 
@@ -163,6 +163,24 @@ export const AppContent: React.FC = () => {
         subjectName={subjectNameAr}
         trialLabel={trialInfo.formattedRemaining}
         isActivated={!!activeLicense}
+        assignedClasses={teacherAccount?.assignedClasses}
+        onSelectAssignedClass={(cls) => {
+          const updated = {
+            ...teacher,
+            stage: cls.stage,
+            grade: cls.grade,
+            stream: cls.stream,
+            subject: cls.subject,
+          };
+          setTeacher(updated);
+          authService.saveTeacherProfile({
+            stage: cls.stage,
+            grade: cls.grade,
+            stream: cls.stream,
+            subject: cls.subject,
+          });
+          setTeacherAccount(authService.getTeacherProfile());
+        }}
         onOpenActivation={() => setIsActivationModalOpen(true)}
         onOpenProfile={() => setIsLoginModalOpen(true)}
       >

@@ -68,7 +68,31 @@ export class GradebookDbService {
     return dbClient.query<StudentEntity>(sql, [divisionId]);
   }
 
+  public async ensureDivisionExists(divisionId: string, defaultName: string = 'شعبة أ'): Promise<void> {
+    try {
+      const existing = await dbClient.query<{ id: string }>(
+        'SELECT id FROM divisions WHERE id = ? LIMIT 1;',
+        [divisionId]
+      );
+      if (!existing || existing.length === 0) {
+        let classes = await this.getClasses();
+        if (!classes || classes.length === 0) {
+          await this.ensureDefaultStructure();
+          classes = await this.getClasses();
+        }
+        const classId = classes[0]?.id || 'cls_prep_5';
+        await dbClient.exec(
+          'INSERT OR IGNORE INTO divisions (id, class_id, name, created_at) VALUES (?, ?, ?, ?);',
+          [divisionId, classId, defaultName, Date.now()]
+        );
+      }
+    } catch (err) {
+      console.warn('Failed to ensure division exists:', err);
+    }
+  }
+
   public async createStudent(std: Omit<StudentEntity, 'created_at'>): Promise<void> {
+    await this.ensureDivisionExists(std.division_id);
     await dbClient.exec(
       `INSERT INTO students (id, division_id, full_name, gender, roll_number, is_active, guardian_phone, notes, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
@@ -87,6 +111,11 @@ export class GradebookDbService {
   }
 
   public async bulkCreateStudents(studentsList: Array<Omit<StudentEntity, 'created_at'>>): Promise<void> {
+    if (studentsList.length === 0) return;
+    const divisionIds = Array.from(new Set(studentsList.map((s) => s.division_id)));
+    for (const divId of divisionIds) {
+      await this.ensureDivisionExists(divId);
+    }
     const now = Date.now();
     const statements = studentsList.map((std) => ({
       sql: `INSERT INTO students (id, division_id, full_name, gender, roll_number, is_active, guardian_phone, notes, created_at)
@@ -291,6 +320,7 @@ export class GradebookDbService {
     try {
       await dbClient.init();
       const existingClasses = await this.getClasses();
+      let classId = defaultClassId;
       if (!existingClasses || existingClasses.length === 0) {
         await this.createClass({
           id: defaultClassId,
@@ -299,10 +329,21 @@ export class GradebookDbService {
           grade_level: 5,
           academic_year: '2026-2027',
         });
-        await this.createDivision({ id: 'div_1', class_id: defaultClassId, name: 'شعبة أ' });
-        await this.createDivision({ id: 'div_2', class_id: defaultClassId, name: 'شعبة ب' });
-        await this.createDivision({ id: 'div_3', class_id: defaultClassId, name: 'شعبة ج' });
+      } else {
+        classId = existingClasses[0].id;
       }
+      await dbClient.exec(
+        `INSERT OR IGNORE INTO divisions (id, class_id, name, created_at) VALUES ('div_1', ?, 'شعبة أ', ?);`,
+        [classId, Date.now()]
+      );
+      await dbClient.exec(
+        `INSERT OR IGNORE INTO divisions (id, class_id, name, created_at) VALUES ('div_2', ?, 'شعبة ب', ?);`,
+        [classId, Date.now()]
+      );
+      await dbClient.exec(
+        `INSERT OR IGNORE INTO divisions (id, class_id, name, created_at) VALUES ('div_3', ?, 'شعبة ج', ?);`,
+        [classId, Date.now()]
+      );
       await dbClient.exec(
         `INSERT OR IGNORE INTO subjects (id, name, stage, grade_level, has_oral, created_at)
          VALUES ('sub_general', 'عام', 'preparatory', 5, 1, ?);`,

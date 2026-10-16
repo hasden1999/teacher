@@ -1,6 +1,9 @@
-import { forwardRef } from 'react';
+import { forwardRef, useState } from 'react';
 import type { ExamPaperAST } from '@techeeer/core';
 import { MathRenderer } from './MathRenderer.js';
+import { IraqiEagleEmblem } from './IraqiEagleEmblem.js';
+
+export type ExamTemplateId = 'ministerial' | 'modern' | 'framed';
 
 export interface ExamPrintViewProps {
   paper: ExamPaperAST;
@@ -13,6 +16,7 @@ export interface ExamPrintViewProps {
   showModelAnswer?: boolean;
   scale?: number;
   className?: string;
+  initialTemplate?: ExamTemplateId;
   onPrint?: () => void;
   onExportPdf?: () => void;
   onExportImage?: () => void;
@@ -24,23 +28,28 @@ export const ExamPrintView = forwardRef<HTMLDivElement, ExamPrintViewProps>(({
   typography,
   watermarkText = 'جمهورية العراق - وزارة التربية',
   className = '',
+  initialTemplate = 'ministerial',
   onPrint,
   onExportPdf,
   onExportImage,
 }, ref) => {
+  const [template, setTemplate] = useState<ExamTemplateId>(initialTemplate);
   const h = paper.header;
-  // Enforce max 2 columns per Iraqi MoE boundary condition T2.18.3
   const isTwoCols = Boolean(twoColumnLayout);
 
   return (
     <div className={`relative flex flex-col items-center bg-slate-100 dark:bg-slate-950 p-2 sm:p-4 print:p-0 print:bg-white ${className}`}>
-      {/* Top Action Bar (hidden in print) */}
-      {(onPrint || onExportPdf || onExportImage) && (
-        <div className="w-full max-w-[210mm] mb-4 flex flex-wrap items-center justify-between gap-2 p-3 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 print:hidden font-tajawal">
+      {/* Top Action Bar & Template Selector (hidden in print) */}
+      <div className="w-full max-w-[210mm] mb-4 flex flex-col gap-3 p-3 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 print:hidden font-tajawal">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-xl">🖨️</span>
-            <span className="text-sm font-bold text-slate-800 dark:text-slate-200">معاينة الورقة الامتحانية A4</span>
+            <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
+              معاينة الورقة الامتحانية A4
+            </span>
           </div>
+
+          {/* Action Buttons */}
           <div className="flex items-center gap-2">
             {onExportPdf && (
               <button
@@ -71,23 +80,69 @@ export const ExamPrintView = forwardRef<HTMLDivElement, ExamPrintViewProps>(({
             )}
           </div>
         </div>
-      )}
+
+        {/* 3 Exam Templates Switcher Bar */}
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+            نمط وقالب الأسئلة:
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setTemplate('ministerial')}
+              className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                template === 'ministerial'
+                  ? 'bg-teal-700 text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              <span>🦅 القالب الوزاري الرسمي (نسر العراق)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTemplate('modern')}
+              className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                template === 'modern'
+                  ? 'bg-teal-700 text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              <span>✨ القالب العصري الحديث</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTemplate('framed')}
+              className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                template === 'framed'
+                  ? 'bg-teal-700 text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              <span>📜 القالب الكلاسيكي المؤطر</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* A4 Sheet Container */}
       <div
         ref={ref}
         id="exam-print-sheet"
         dir="rtl"
-        className={`w-full max-w-[210mm] min-h-[297mm] p-[15mm] bg-white text-slate-950 ${
+        className={`w-full max-w-[210mm] min-h-[297mm] p-[14mm] sm:p-[16mm] bg-white text-slate-950 ${
           typography?.fontFamily === 'Tajawal' ? 'font-tajawal' : 'font-amiri'
         } ${
           typography?.scale === 'small' ? 'text-xs' : typography?.scale === 'large' ? 'text-base' : 'text-sm'
-        } shadow-xl print:shadow-none print:w-full print:max-w-none print:min-h-0 print:p-0 relative flex flex-col justify-between selection:bg-teal-100 border border-slate-200 print:border-none`}
-        style={{
-          boxSizing: 'border-box',
-        }}
+        } shadow-xl print:shadow-none print:w-full print:max-w-none print:min-h-0 print:p-0 relative flex flex-col justify-between selection:bg-teal-100 ${
+          template === 'framed'
+            ? 'border-4 border-double border-slate-900 m-1'
+            : template === 'modern'
+            ? 'border border-slate-300 rounded-xl'
+            : 'border border-slate-200 print:border-none'
+        }`}
+        style={{ boxSizing: 'border-box' }}
       >
-        {/* Subtle Watermark (opacity strictly 0.08 for safe risograph replication) */}
+        {/* Watermark */}
         {watermarkText && (
           <div
             aria-hidden="true"
@@ -102,51 +157,122 @@ export const ExamPrintView = forwardRef<HTMLDivElement, ExamPrintViewProps>(({
 
         {/* Paper Content Wrapper */}
         <div className="relative z-10 space-y-4">
-          {/* وزاري ثابت: الترويسة الوزارية الرسمية العراقية المعتمدة (يمين: معلومات الوزارة والمدرسة، وسط: الشعار والعنوان، يسار: المادة والوقت) */}
-          <header className="border-b-2 border-slate-900 pb-3">
-            <div className="grid grid-cols-3 gap-2 items-center text-center text-xs sm:text-sm">
-              {/* Right Column (وزاري ثابت) */}
-              <div className="text-right space-y-0.5 leading-snug">
-                <div className="font-bold">{h.country || 'جمهورية العراق'}</div>
-                <div>{h.ministry || 'وزارة التربية'}</div>
-                <div className="text-slate-800">{h.directorate || 'المديرية العامة للتربية'}</div>
-                <div className="font-bold text-slate-900">{h.schoolName || 'اسم المدرسة'}</div>
-              </div>
+          {/* ========================================================
+              TEMPLATE 1: MINISTERIAL OFFICIAL (With Iraqi Eagle)
+             ======================================================== */}
+          {template === 'ministerial' && (
+            <header className="border-b-2 border-slate-900 pb-3">
+              <div className="grid grid-cols-3 gap-2 items-center text-center text-xs sm:text-sm">
+                {/* Right Column */}
+                <div className="text-right space-y-0.5 leading-snug">
+                  <div className="font-bold">{h.country || 'جمهورية العراق'}</div>
+                  <div>{h.ministry || 'وزارة التربية'}</div>
+                  <div className="text-slate-800">{h.directorate || 'المديرية العامة للتربية'}</div>
+                  <div className="font-bold text-slate-900">{h.schoolName || 'اسم المدرسة'}</div>
+                </div>
 
-              {/* Center Column */}
-              <div className="space-y-1">
-                {/* Iraqi Coat of Arms Emblem SVG */}
-                <div className="flex justify-center my-0.5">
-                  <svg className="w-8 h-8 text-slate-900" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2L9.5 6.5L4 7.3L8 11.2L7.1 16.7L12 14.1L16.9 16.7L16 11.2L20 7.3L14.5 6.5L12 2Z" />
-                  </svg>
-                </div>
-                <div className="font-bold text-sm sm:text-base text-slate-900">
-                  {h.examTitle || 'امتحانات نصف السنة'}
-                </div>
-                {h.academicYear && (
-                  <div className="text-xs text-slate-700">
-                    {h.academicYear.includes('للعام') ? h.academicYear : `للعام الدراسي ${h.academicYear}`}
+                {/* Center Column: Iraqi Republican Eagle */}
+                <div className="space-y-1">
+                  <div className="flex justify-center my-0.5">
+                    <IraqiEagleEmblem size={52} />
                   </div>
-                )}
+                  <div className="font-bold text-sm sm:text-base text-slate-900">
+                    {h.examTitle || 'امتحانات نصف السنة'}
+                  </div>
+                  {h.academicYear && (
+                    <div className="text-xs text-slate-700">
+                      {h.academicYear.includes('للعام') ? h.academicYear : `للعام الدراسي ${h.academicYear}`}
+                    </div>
+                  )}
+                </div>
+
+                {/* Left Column */}
+                <div className="text-left space-y-0.5 leading-snug">
+                  {h.subject && <div className="font-bold">{h.subject.includes(':') ? h.subject : `المادة: ${h.subject}`}</div>}
+                  {h.grade && <div>{h.grade.includes(':') ? h.grade : `الصف: ${h.grade}`}</div>}
+                  {h.timeAllowed && <div>{h.timeAllowed.includes(':') ? h.timeAllowed : `الوقت: ${h.timeAllowed}`}</div>}
+                  <div className="text-slate-700">التاريخ: .... / .... / 2027</div>
+                </div>
               </div>
 
-              {/* Left Column */}
-              <div className="text-left space-y-0.5 leading-snug">
-                {h.subject && <div className="font-bold">{h.subject.includes(':') ? h.subject : `المادة: ${h.subject}`}</div>}
-                {h.grade && <div>{h.grade.includes(':') ? h.grade : `الصف: ${h.grade}`}</div>}
-                {h.timeAllowed && <div>{h.timeAllowed.includes(':') ? h.timeAllowed : `الوقت: ${h.timeAllowed}`}</div>}
-                <div className="text-slate-700">التاريخ: .... / .... / 2027</div>
-              </div>
-            </div>
+              {/* General Note Banner */}
+              {h.generalNote && (
+                <div className="mt-3 p-1.5 text-center text-xs sm:text-sm font-bold border border-slate-900 rounded-md bg-slate-50/50 print:bg-transparent">
+                  {h.generalNote.startsWith('ملاحظة') ? h.generalNote : `ملاحظة: ${h.generalNote}`}
+                </div>
+              )}
+            </header>
+          )}
 
-            {/* General Note Banner */}
-            {h.generalNote && (
-              <div className="mt-3 p-1.5 text-center text-xs sm:text-sm font-bold border border-slate-900 rounded-md bg-slate-50/50 print:bg-transparent">
-                {h.generalNote.startsWith('ملاحظة') ? h.generalNote : `ملاحظة: ${h.generalNote}`}
+          {/* ========================================================
+              TEMPLATE 2: MODERN CLEAN
+             ======================================================== */}
+          {template === 'modern' && (
+            <header className="border-b border-slate-300 pb-3">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-dashed border-slate-200">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-sm text-teal-800 bg-teal-50 px-2.5 py-1 rounded-lg">
+                    {h.country || 'جمهورية العراق'} - {h.ministry || 'وزارة التربية'}
+                  </span>
+                  <span className="text-xs text-slate-600">{h.directorate || 'المديرية العامة للتربية'}</span>
+                </div>
+                <span className="font-bold text-xs text-slate-700">{h.schoolName || 'اسم المدرسة'}</span>
               </div>
-            )}
-          </header>
+              <div className="grid grid-cols-3 gap-2 items-center text-center text-xs">
+                <div className="text-right space-y-1">
+                  <div className="font-extrabold text-sm text-slate-900">{h.subject || 'المادة الدراسية'}</div>
+                  <div className="text-slate-700">{h.grade || 'الصف الدراسي'}</div>
+                </div>
+                <div>
+                  <div className="font-black text-base text-slate-900">{h.examTitle || 'الامتحان الرسمي'}</div>
+                  <div className="text-xs text-slate-500">{h.academicYear || '2026 - 2027'}</div>
+                </div>
+                <div className="text-left space-y-1">
+                  <div>الوقت: {h.timeAllowed || 'ساعتان'}</div>
+                  <div className="text-slate-500">التاريخ: .... / .... / 2027</div>
+                </div>
+              </div>
+              {h.generalNote && (
+                <div className="mt-2.5 p-2 rounded-xl bg-teal-50/60 text-teal-900 text-xs font-bold text-center border border-teal-200/60">
+                  {h.generalNote.startsWith('ملاحظة') ? h.generalNote : `ملاحظة: ${h.generalNote}`}
+                </div>
+              )}
+            </header>
+          )}
+
+          {/* ========================================================
+              TEMPLATE 3: CLASSIC FRAMED
+             ======================================================== */}
+          {template === 'framed' && (
+            <header className="border-b-2 border-slate-900 pb-3">
+              <div className="text-center font-bold text-xs text-slate-800 mb-1">
+                بسم الله الرحمن الرحيم
+              </div>
+              <div className="grid grid-cols-3 gap-2 items-center text-center text-xs sm:text-sm">
+                <div className="text-right space-y-0.5">
+                  <div className="font-bold">{h.country || 'جمهورية العراق'}</div>
+                  <div>{h.ministry || 'وزارة التربية'}</div>
+                  <div>{h.schoolName || 'المدرسة'}</div>
+                </div>
+                <div className="space-y-0.5">
+                  <div className="font-black text-base text-slate-950 underline underline-offset-4">
+                    {h.examTitle || 'ورقة الأسئلة الامتحانية'}
+                  </div>
+                  <div className="text-xs text-slate-700">{h.academicYear || 'العام الدراسي 2026 - 2027'}</div>
+                </div>
+                <div className="text-left space-y-0.5">
+                  <div className="font-bold">{h.subject || 'المادة'}</div>
+                  <div>{h.grade || 'الصف'}</div>
+                  <div>{h.timeAllowed ? `الزمن: ${h.timeAllowed}` : 'الزمن: ساعتان'}</div>
+                </div>
+              </div>
+              {h.generalNote && (
+                <div className="mt-3 p-1.5 text-center text-xs font-bold border-2 border-slate-900 bg-slate-100/60">
+                  {h.generalNote.startsWith('ملاحظة') ? h.generalNote : `ملاحظة: ${h.generalNote}`}
+                </div>
+              )}
+            </header>
+          )}
 
           {/* Questions Container (supports 1 or 2 columns) */}
           <main className={isTwoCols ? 'columns-2 gap-8' : 'space-y-4'}>
@@ -158,7 +284,9 @@ export const ExamPrintView = forwardRef<HTMLDivElement, ExamPrintViewProps>(({
               return (
                 <article
                   key={q.id}
-                  className="break-inside-avoid print:break-inside-avoid pb-3 border-b border-dashed border-slate-300 last:border-b-0"
+                  className={`break-inside-avoid print:break-inside-avoid pb-3 border-b border-dashed border-slate-300 last:border-b-0 ${
+                    template === 'modern' ? 'p-2.5 rounded-xl bg-slate-50/40 mb-2 border-none' : ''
+                  }`}
                 >
                   {/* Question Header & Marks */}
                   <div className="flex items-baseline justify-between gap-2 mb-1.5">

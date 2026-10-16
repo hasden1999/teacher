@@ -2,6 +2,8 @@ import React from 'react';
 import { OfflineBadge, DbSyncBadge, DbSyncStatus } from '../common/StatusBadges.js';
 import { IconBadgeCheck, IconHourglass } from '../common/Icons.js';
 
+import type { AssignedClass } from '../../services/authService.js';
+
 export interface AppHeaderProps {
   currentSectionTitle: string;
   dbStatus?: DbSyncStatus;
@@ -9,6 +11,8 @@ export interface AppHeaderProps {
   subjectName?: string;
   trialLabel?: string;
   isActivated?: boolean;
+  assignedClasses?: AssignedClass[];
+  onSelectAssignedClass?: (cls: AssignedClass) => void;
   onOpenActivation?: () => void;
   onOpenProfile?: () => void;
 }
@@ -20,6 +24,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   subjectName = 'الرياضيات',
   trialLabel,
   isActivated = false,
+  assignedClasses,
+  onSelectAssignedClass,
   onOpenActivation,
   onOpenProfile,
 }) => {
@@ -87,6 +93,29 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         >
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-xs ring-2 ring-emerald-200 dark:ring-emerald-900 animate-pulse" />
         </button>
+
+        {/* Multi-Class Switcher if multiple classes assigned */}
+        {assignedClasses && assignedClasses.length > 0 && onSelectAssignedClass && (
+          <div className="hidden sm:flex items-center gap-1 bg-teal-50/70 dark:bg-slate-800 px-2 py-1 rounded-xl text-xs border border-teal-200 dark:border-slate-700">
+            <span className="text-[11px] font-bold text-teal-800 dark:text-teal-300">الصف:</span>
+            <select
+              aria-label="تبديل الصف الدراسي المسند"
+              defaultValue=""
+              onChange={(e) => {
+                const found = assignedClasses.find(c => c.id === e.target.value);
+                if (found) onSelectAssignedClass(found);
+              }}
+              className="bg-transparent font-bold text-slate-800 dark:text-slate-100 border-none outline-none cursor-pointer text-xs max-w-[130px] truncate"
+            >
+              <option value="" disabled>{subjectName}</option>
+              {assignedClasses.map((cls) => (
+                <option key={cls.id} value={cls.id} className="text-slate-900 bg-white dark:bg-slate-800">
+                  {cls.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Teacher Profile Pill */}
         <div

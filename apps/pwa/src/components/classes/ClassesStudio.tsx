@@ -14,6 +14,7 @@ import { excelService } from '../../services/excelService.js';
 import { gradebookDbService } from '../../services/gradebookDbService.js';
 import { authService } from '../../services/authService.js';
 import type { StudentRowItem } from '../gradebook/types.js';
+import { StudentRosterOcrModal } from './StudentRosterOcrModal.js';
 
 export const ClassesStudio: React.FC = () => {
   const [students, setStudents] = useState<StudentRowItem[]>([]);
@@ -21,6 +22,7 @@ export const ClassesStudio: React.FC = () => {
   const [newStudentPhone, setNewStudentPhone] = useState('');
   const [newStudentGender, setNewStudentGender] = useState<'male' | 'female'>('male');
   const [isAddFormOpen, setIsAddFormOpen] = useState(false);
+  const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
 
   const [divisionsList, setDivisionsList] = useState<Array<{ id: string; name: string }>>([
     { id: 'div_1', name: 'شعبة أ' },
@@ -192,6 +194,40 @@ export const ClassesStudio: React.FC = () => {
     }
   };
 
+  const handleApplyOcrStudents = async (
+    ocrStudents: Array<{ fullName: string; gender: 'male' | 'female'; rollNumber?: number }>
+  ) => {
+    try {
+      const startRoll = students.length;
+      const newItems: StudentRowItem[] = ocrStudents.map((s, idx) => ({
+        id: `std_ocr_${Date.now()}_${idx}`,
+        fullName: s.fullName,
+        rollNumber: s.rollNumber || startRoll + idx + 1,
+        gender: s.gender,
+      }));
+
+      const entities = newItems.map((s) => ({
+        id: s.id,
+        division_id: divisionId,
+        full_name: s.fullName,
+        gender: s.gender || 'male',
+        roll_number: s.rollNumber,
+        is_active: 1,
+        guardian_phone: null,
+        notes: null,
+      }));
+
+      await gradebookDbService.bulkCreateStudents(entities);
+      setStudents((prev) => [...prev, ...newItems]);
+      showToast({
+        message: `تمت إضافة ${newItems.length} طالباً بنجاح وحفظهم في قاعدة البيانات`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      showToast({ message: `فشل حفظ الطلاب: ${err.message}`, type: 'error' });
+    }
+  };
+
   const handleDeleteStudent = async (studentId: string, studentName: string) => {
     if (window.confirm(`هل أنت متأكد من حذف الطالب (${studentName})؟ سيتم مسح كافة درجاته المسجلة.`)) {
       try {
@@ -284,6 +320,17 @@ export const ClassesStudio: React.FC = () => {
               className="hidden"
             />
           </label>
+
+          {/* Handwritten OCR Button */}
+          <button
+            type="button"
+            onClick={() => setIsOcrModalOpen(true)}
+            className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-teal-800 hover:bg-teal-700 active:scale-95 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="إدراج الطلاب عبر تصوير القائمة المكتوبة بخط اليد بالكاميرا أو رفع صورة"
+          >
+            <span>📸</span>
+            <span>مسح خط اليد / كاميرا</span>
+          </button>
 
           {/* Export Roster Button */}
           <button
@@ -469,6 +516,14 @@ export const ClassesStudio: React.FC = () => {
           </div>
         </>
       )}
+
+      {/* Handwritten OCR Roster Modal */}
+      <StudentRosterOcrModal
+        isOpen={isOcrModalOpen}
+        onClose={() => setIsOcrModalOpen(false)}
+        onApplyStudents={handleApplyOcrStudents}
+        divisionName={selectedDivision}
+      />
     </div>
   );
 };

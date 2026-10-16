@@ -11,9 +11,11 @@ export interface EquationKeypadProps {
 
 const CATEGORY_TABS: Array<{ id: SymbolCategory; label: string }> = [
   { id: 'basic', label: 'أساسيات' },
-  { id: 'advanced', label: 'رياضيات عليا' },
+  { id: 'advanced', label: 'تفاضل وتكامل' },
+  { id: 'sets', label: 'مجموعات ومنطق' },
+  { id: 'physics', label: 'فيزياء ورموز' },
   { id: 'chemistry', label: 'كيمياء' },
-  { id: 'symbols', label: 'رموز وأقواس' },
+  { id: 'symbols', label: 'أقواس وهندسة' },
 ];
 
 export const EquationKeypad: React.FC<EquationKeypadProps> = ({

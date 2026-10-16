@@ -4,6 +4,8 @@ import { DesktopSidebar, NavTabId, NAV_ITEMS } from './DesktopSidebar.js';
 import { MobileBottomNav } from './MobileBottomNav.js';
 import { DbSyncStatus } from '../common/StatusBadges.js';
 
+import type { AssignedClass } from '../../services/authService.js';
+
 export interface AppShellProps {
   children?: React.ReactNode;
   activeTab?: NavTabId;
@@ -13,6 +15,8 @@ export interface AppShellProps {
   subjectName?: string;
   trialLabel?: string;
   isActivated?: boolean;
+  assignedClasses?: AssignedClass[];
+  onSelectAssignedClass?: (cls: AssignedClass) => void;
   onOpenActivation?: () => void;
   onOpenProfile?: () => void;
 }
@@ -26,6 +30,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   subjectName,
   trialLabel,
   isActivated,
+  assignedClasses,
+  onSelectAssignedClass,
   onOpenActivation,
   onOpenProfile,
 }) => {
@@ -45,6 +51,8 @@ export const AppShell: React.FC<AppShellProps> = ({
         subjectName={subjectName}
         trialLabel={trialLabel}
         isActivated={isActivated}
+        assignedClasses={assignedClasses}
+        onSelectAssignedClass={onSelectAssignedClass}
         onOpenActivation={onOpenActivation}
         onOpenProfile={onOpenProfile}
       />

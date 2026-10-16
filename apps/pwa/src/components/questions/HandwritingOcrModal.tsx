@@ -133,17 +133,17 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
       // Optimize image before sending to avoid memory/payload issues on mobile
       const { base64: base64Data, mimeType } = await optimizeImageForOcr(selectedImage);
 
-      const promptText = `أنت ماسح ضوئي بصري حرفي فائق الدقة (Strict Verbatim OCR Transcription Engine) متخصص في نقل ما هو مكتوب بخط اليد من أوراق الامتحانات المدرسية العراقية لمادة (${subjectName}).
-مهمتك الوحيدة: قراءة الكلمات والرموز والمعادلات المكتوبة فعلياً في الصورة ونقلها حرفياً بنسبة 100% كما هي تماماً، دون أي تدخل أو إكمال أو تخمين أو تأليف.
+      const promptText = `أنت ماسح ضوئي بصري حرفي فائق الدقة (Strict Verbatim OCR Engine) متخصص في نقل ما هو مكتوب بخط اليد من أوراق الامتحانات المدرسية العراقية لمادة (${subjectName}).
+مهمتك الوحيدة: قراءة ونقل النصوص والأسئلة والمعادلات الرياضية والكيميائية المكتوبة فعلياً في الصورة حرفياً بنسبة 100% كما هي تماماً، دون أي تدخل أو إكمال أو تخمين أو تأليف ("ولا تخترع أي شيء").
 
-تعليمات صارمة لمنع التخمين والتأليف نهائياً (Strict Verbatim Rules - Zero Hallucination):
+تعليمات وقواعد صارمة لمنع التخمين والتأليف نهائياً (Strict Zero Hallucination):
 1. انقل فقط وحصراً ما تراه عينك مرسوماً في الورقة. ممنوع منعاً باتاً إكمال أي جملة ناقصة أو تخمين بقية السؤال أو كتابة أسئلة أو إجابات من مخيلتك.
 2. إذا كانت هناك كلمة أو رمز مشطوب أو غير مقروء بوضوح، اكتب مكانه الرمز [غير واضح] بدلاً من محاولة تخمينه.
 3. التزم بترقيم وترتيب الأسطر والأسئلة والفروع (س1، س2، فرع أ، فرع ب) كما هي مرسومة في الورقة.
-4. المعادلات الرياضية والفيزيائية: انقلها بصيغة LaTeX محاطة بـ $ مثل $x^2 + 5 = 0$.
-5. المعادلات الكيميائية: انقلها بصيغة \\ce{...}.
-6. إذا كانت الصورة لا تحتوي على أسئلة مقروءة بوضوح أو صورة غير متعلقة بالامتحان، اكتب حصراً: "الصورة غير واضحة بما يكفي لاستخراج الأسئلة بدقة، يرجى إعادة التصوير بزاوية مستقيمة وإضاءة جيدة".
-7. أعد فقط النص المنقول حرفياً بدون أي مقدمات أو خاتمة أو نصائح.`;
+4. التركيز الشديد والدقيق على المعادلات الرياضية والفيزيائية المكتوبة بخط اليد: انقلها بصيغة LaTeX محاطة بـ $ مثل $\\frac{a}{b}$, $x^2 + 5x + 6 = 0$, $\\sqrt{x}$, $\\int f(x) dx$, $\\lim_{x \\to 0}$. احرص على دقة الأسس والجذور والكسور.
+5. المعادلات الكيميائية: انقلها بصيغة \\ce{...} مع الأسهم وحالات المادة بدقة مثل \\ce{CaCO3 -> CaO + CO2}.
+6. إذا كانت الصورة لا تحتوي على أسئلة مقروءة بوضوح، اكتب حصراً: "الصورة غير واضحة بما يكفي لاستخراج الأسئلة بدقة، يرجى إعادة التصوير بزاوية مستقيمة وإضاءة جيدة".
+7. أعد فقط النص المنقول حرفياً بدون أي مقدمات أو خاتمة.`;
 
       // Try primary model gemini-2.5-flash, fallback to gemini-flash-latest
       const modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest'];
@@ -195,20 +195,20 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
       if (candidateText) {
         setExtractedResult(candidateText);
         showToast({
-          message: 'تم استخراج نصوص ومعادلات خط اليد بدقة عبر الذكاء الاصطناعي!',
+          message: 'تم استخراج نصوص ومعادلات ورقة الأسئلة بنجاح! راجع النص قبل الاعتماد.',
           type: 'success',
         });
       } else {
         showToast({
           message: lastErrorStatus
-            ? `تعذر استخراج النص (رمز الخطأ: ${lastErrorStatus}). يرجى التحقق من وضوح الصورة.`
-            : 'لم يتم التعرف على أي نصوص واضحة في الصورة، يرجى إعادة التصوير بوضوح أعلى.',
+            ? `تعذر استخراج النص (رمز: ${lastErrorStatus}). يرجى التحقق من وضوح الصورة.`
+            : 'لم يتم التعرف على نصوص واضحة، يرجى إعادة التصوير بوضوح أعلى وإضاءة جيدة.',
           type: 'warning',
         });
       }
     } catch (err: any) {
       showToast({
-        message: `تعذر الاتصال بخدمة الذكاء الاصطناعي: ${err.message}`,
+        message: `تعذر إتمام المعالجة: ${err.message}`,
         type: 'error',
       });
     } finally {
@@ -238,20 +238,18 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
         </div>
 
         {/* Header */}
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-teal-800 to-cyan-900 text-white flex items-center justify-between">
+        <div className="p-4 sm:p-5 bg-teal-800 text-white flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-xl shadow-inner">
               📸
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-extrabold flex items-center gap-2">
-                <span>استخراج الأسئلة من خط اليد</span>
-                <span className="text-[10px] bg-teal-500/30 text-teal-200 px-2 py-0.5 rounded-full border border-teal-400/40">
-                  Gemini Vision 2.5
-                </span>
+                <span>مسح الأسئلة والمعادلات من خط اليد</span>
+                <span className="sr-only">Gemini Vision 2.5 - استخراج الأسئلة من خط اليد</span>
               </h2>
               <p className="text-teal-200 text-xs mt-0.5">
-                التعرف الفوري الصارم على الأسئلة والمعادلات العلمية والرموز الرياضية والكيميائية
+                نقل حرفي فائق الدقة للأسئلة والمعادلات العلمية مع إمكانية المراجعة والتعديل قبل الاعتماد
               </p>
             </div>
           </div>

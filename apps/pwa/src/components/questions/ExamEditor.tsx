@@ -55,6 +55,39 @@ const DEFAULT_RAW_TEXT = `جمهورية العراق
 فرع أ: النظام المفتوح والنظام المغلق (10 درجات)
 فرع ب: العمليات التلقائية وغير التلقائية (10 درجات)`;
 
+/**
+ * Normalizes and formalizes exam question instructions and punctuation
+ * into the official Iraqi Ministry of Education ministerial standard style.
+ */
+export function formatFormalExamText(text: string): string {
+  if (!text) return '';
+  let res = text.trim();
+
+  // Normalize punctuation to Arabic standard
+  res = res.replace(/\?/g, '؟');
+  res = res.replace(/;/g, '؛');
+  res = res.replace(/,/g, '،');
+
+  // Fix spacing around punctuation
+  res = res.replace(/\s*:\s*/g, ': ');
+  res = res.replace(/\s*؛\s*/g, '؛ ');
+  res = res.replace(/\s*،\s*/g, '، ');
+  res = res.replace(/\s*؟\s*/g, '؟ ');
+
+  // Formal Iraqi ministerial exam phrasings (expands shorthand inputs without duplicate phrasing)
+  res = res.replace(/^(عرف|عرّف)(\s*:)?$/i, 'عرف ما يأتي:');
+  res = res.replace(/^(علل)(\s*:)?$/i, 'علل ما يأتي:');
+  res = res.replace(/^(قارن)(\s*:)?$/i, 'قارن بين كل مما يأتي:');
+  res = res.replace(/^(املا|املأ)\s+(الفراغ|الفراغات)(\s*:)?$/i, 'املأ الفراغات الآتية بما يناسبها:');
+  res = res.replace(/^(اختر|إختر)\s+(الاجابة|الإجابة)(\s*:)?$/i, 'اختر الإجابة الصحيحة من بين الأقواس:');
+  res = res.replace(/^(ما هو|ما هي)(\s*:)?$/i, 'ما المقصود بكل مما يأتي:');
+  res = res.replace(/^(اجب|أجب)\s+(عن|عما)\s+(يلي|الاتي)(\s*:)?$/i, 'أجب عما يأتي:');
+
+  // Clean consecutive spaces
+  res = res.replace(/[ \t]+/g, ' ');
+  return res.trim();
+}
+
 export const ExamEditor: React.FC<ExamEditorProps> = ({
   initialText,
   initialAST,
@@ -162,6 +195,24 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
     commitAstChange(nextAST);
   };
 
+  // Format a specific question and its branches into official ministerial Arabic style
+  const formatQuestion = (qIndex: number) => {
+    updateQuestion(qIndex, q => ({
+      ...q,
+      instruction: formatFormalExamText(q.instruction || ''),
+      header: `${q.headerLabel || `س${q.questionNumber}`}: ${formatFormalExamText(q.instruction || '')}`.trim(),
+      branches: q.branches.map(b => ({
+        ...b,
+        text: formatFormalExamText(b.text || ''),
+      })),
+      subItems: q.branches.map(b => ({
+        label: b.label,
+        text: formatFormalExamText(b.text || ''),
+        marks: b.marks,
+      })),
+    }));
+  };
+
   // Add a new question
   const handleAddQuestion = () => {
     const nextNum = ast.questions.length + 1;
@@ -178,6 +229,15 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
     };
     const nextAST = { ...ast, questions: [...ast.questions, newQ] };
     commitAstChange(nextAST);
+  };
+
+  // Clear all branches from a question (revert to direct question)
+  const handleClearBranches = (qIndex: number) => {
+    updateQuestion(qIndex, q => ({
+      ...q,
+      branches: [],
+      subItems: [],
+    }));
   };
 
   // Delete a question
@@ -368,51 +428,24 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
     <div dir="rtl" className={`flex flex-col h-full bg-slate-100 dark:bg-slate-950 font-tajawal ${className}`}>
       {/* Top Main Navigation & Stats Bar */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 shrink-0 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {/* Title & Mode Switcher */}
-          <div className="flex items-center gap-3">
+        {/* Page Title & Status */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-2.5">
             <span className="text-2xl">📝</span>
             <div>
-              <h1 className="text-base sm:text-lg font-bold text-teal-900 dark:text-teal-200">
-                ستوديو الأسئلة وإعداد الامتحانات
+              <h1 className="text-base sm:text-lg font-black text-teal-900 dark:text-teal-200 tracking-tight">
+                استوديو الأسئلة وإعداد الامتحانات
               </h1>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 font-medium">
                 {ast.header.subject ? `${ast.header.subject}` : 'الامتحان الرسمي'} | {ast.header.grade || 'كافة الصفوف'}
               </p>
             </div>
-
-            {/* Mode Switcher Tabs */}
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl ms-2">
-              <button
-                type="button"
-                onClick={() => handleSwitchMode('structured')}
-                className={`min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  mode === 'structured'
-                    ? 'bg-teal-700 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                }`}
-              >
-                🗂️ النمط المنظم
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSwitchMode('natural')}
-                className={`min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  mode === 'natural'
-                    ? 'bg-teal-700 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                }`}
-              >
-                📄 النص الطبيعي واللصق
-              </button>
-            </div>
           </div>
 
-          {/* Quick Actions & Marks Badge */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Marks Status Indicator */}
             <div
-              className={`min-h-[44px] px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border ${
+              className={`min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border shadow-xs ${
                 marksSummary.isStandard100
                   ? 'bg-green-50 text-green-800 border-green-300 dark:bg-green-950 dark:text-green-300'
                   : 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
@@ -423,116 +456,164 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
               <span>المجموع: {marksSummary.totalMarks} / 100 درجة</span>
             </div>
 
-            {/* AI Handwriting OCR Button */}
-            <button
-              type="button"
-              onClick={() => setHandwritingOcrOpen(true)}
-              className="min-h-[44px] px-3.5 py-2 rounded-xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-            >
-              <span>📸 استخراج خط اليد (AI)</span>
-            </button>
-
-            {/* Question Bank Launcher Button */}
-            <button
-              type="button"
-              onClick={() => setQuestionBankOpen(true)}
-              className="min-h-[44px] px-3.5 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
-            >
-              <span>📚 بنك الأسئلة</span>
-            </button>
-
-            {/* Header Metadata Edit Button */}
-            <button
-              type="button"
-              onClick={() => setHeaderModalOpen(true)}
-              className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
-            >
-              <span>🏛️ ترويسة الامتحان</span>
-            </button>
-
-            {/* Typography Controls Button */}
-            <button
-              type="button"
-              onClick={() => setTypographyOpen(prev => !prev)}
-              className="min-h-[44px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
-            >
-              <span>🔤 الخطوط</span>
-            </button>
+            {/* Mode Switcher Tabs */}
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl text-xs">
+              <button
+                type="button"
+                onClick={() => handleSwitchMode('structured')}
+                className={`min-h-[36px] px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  mode === 'structured'
+                    ? 'bg-teal-700 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                🗂️ النمط المنظم
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSwitchMode('natural')}
+                className={`min-h-[36px] px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  mode === 'natural'
+                    ? 'bg-teal-700 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+              >
+                📄 النص الطبيعي واللصق
+              </button>
+            </div>
 
             {/* Mobile View Toggle */}
-            <div className="flex lg:hidden bg-slate-200 dark:bg-slate-800 p-0.5 rounded-xl">
+            <div className="flex lg:hidden bg-slate-200 dark:bg-slate-800 p-0.5 rounded-xl text-xs">
               <button
                 type="button"
                 onClick={() => setActiveMobileView('editor')}
-                className={`min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
+                className={`min-h-[36px] px-3 py-1 rounded-lg font-bold cursor-pointer transition ${
                   activeMobileView === 'editor' ? 'bg-white dark:bg-slate-700 text-teal-800 shadow-xs' : 'text-slate-600'
                 }`}
               >
-                تحرير
+                ✏️ تحرير
               </button>
               <button
                 type="button"
                 onClick={() => setActiveMobileView('preview')}
-                className={`min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
+                className={`min-h-[36px] px-3 py-1 rounded-lg font-bold cursor-pointer transition ${
                   activeMobileView === 'preview' ? 'bg-white dark:bg-slate-700 text-teal-800 shadow-xs' : 'text-slate-600'
                 }`}
               >
-                معاينة
+                👁️ معاينة
               </button>
             </div>
           </div>
         </div>
 
-        {/* Collapsible Typography Toolbar */}
+        {/* Evenly Arranged Action Buttons Grid (Designed for Mobile & Desktop) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 w-full pt-2.5">
+          <button
+            type="button"
+            onClick={handleAddQuestion}
+            className="min-h-[44px] px-2.5 py-2 rounded-xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95 text-center"
+          >
+            <span>➕ إضافة سؤال</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setHandwritingOcrOpen(true)}
+            className="min-h-[44px] px-2.5 py-2 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 text-center"
+          >
+            <span>📸 مسح الأسئلة</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFormulaTarget(null);
+              setFormulaEditorOpen(true);
+            }}
+            className="min-h-[44px] px-2.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 text-center"
+          >
+            <span>📐 الرموز والمعادلات</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setQuestionBankOpen(true)}
+            className="min-h-[44px] px-2.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 text-center"
+          >
+            <span>📚 بنك الأسئلة</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setHeaderModalOpen(true)}
+            className="min-h-[44px] px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 text-center"
+          >
+            <span>🏛️ ترويسة الامتحان</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTypographyOpen(prev => !prev)}
+            className={`min-h-[44px] px-2.5 py-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 text-center ${
+              typographyOpen
+                ? 'bg-teal-700 text-white border-teal-800'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+            }`}
+          >
+            <span>🔤 حجم ونمط الخط</span>
+          </button>
+        </div>
+
+        {/* Collapsible Typography & Font Controls Toolbar */}
         {typographyOpen && (
-          <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-3 text-xs bg-slate-50 dark:bg-slate-950 p-3 rounded-xl animate-in slide-in-from-top-2">
-            <div className="flex items-center gap-1.5">
+          <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs bg-slate-50 dark:bg-slate-950 p-3 rounded-2xl animate-in slide-in-from-top-2 border border-slate-200 dark:border-slate-800">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="font-bold text-slate-700 dark:text-slate-300">نوع الخط:</span>
               <button
                 type="button"
                 onClick={() => setTypography(t => ({ ...t, fontFamily: 'Amiri' }))}
-                className={`min-h-[40px] px-3 py-1 rounded-lg font-amiri text-sm font-bold cursor-pointer ${
-                  typography.fontFamily === 'Amiri' ? 'bg-teal-700 text-white' : 'bg-white border text-slate-700'
+                className={`min-h-[38px] px-3.5 py-1.5 rounded-xl font-amiri text-sm font-bold cursor-pointer transition ${
+                  typography.fontFamily === 'Amiri' ? 'bg-teal-700 text-white shadow-xs' : 'bg-white border text-slate-700'
                 }`}
               >
-                الأميري (وزاري)
+                الأميري (وزاري رسمي)
               </button>
               <button
                 type="button"
                 onClick={() => setTypography(t => ({ ...t, fontFamily: 'Tajawal' }))}
-                className={`min-h-[40px] px-3 py-1 rounded-lg font-tajawal text-sm font-bold cursor-pointer ${
-                  typography.fontFamily === 'Tajawal' ? 'bg-teal-700 text-white' : 'bg-white border text-slate-700'
+                className={`min-h-[38px] px-3.5 py-1.5 rounded-xl font-tajawal text-sm font-bold cursor-pointer transition ${
+                  typography.fontFamily === 'Tajawal' ? 'bg-teal-700 text-white shadow-xs' : 'bg-white border text-slate-700'
                 }`}
               >
-                تجوّل (حديث)
+                تجوّل (عصري)
               </button>
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-slate-700 dark:text-slate-300">مقياس الحجم:</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-bold text-slate-700 dark:text-slate-300">حجم الخط:</span>
               {(['small', 'medium', 'large'] as const).map(s => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setTypography(t => ({ ...t, scale: s }))}
-                  className={`min-h-[40px] px-2.5 py-1 rounded-lg font-bold cursor-pointer ${
-                    typography.scale === s ? 'bg-teal-700 text-white' : 'bg-white border text-slate-700'
+                  className={`min-h-[38px] px-3 py-1.5 rounded-xl font-bold cursor-pointer transition ${
+                    typography.scale === s ? 'bg-teal-700 text-white shadow-xs' : 'bg-white border text-slate-700'
                   }`}
                 >
-                  {s === 'small' ? 'مدمج' : s === 'medium' ? 'متوسط' : 'كبير'}
+                  {s === 'small' ? 'مدمج (صغير)' : s === 'medium' ? 'متوسط (معياري)' : 'كبير (واضح)'}
                 </button>
               ))}
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <label className="flex items-center gap-1 cursor-pointer font-bold text-slate-700 dark:text-slate-300">
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 cursor-pointer font-bold text-slate-700 dark:text-slate-300">
                 <input
                   type="checkbox"
                   checked={twoColumnLayout}
                   onChange={e => setTwoColumnLayout(e.target.checked)}
                   className="rounded text-teal-700 w-4 h-4 cursor-pointer"
                 />
-                <span>توزيع على عمودين (A4 Columns)</span>
+                <span>توزيع الورقة على عمودين (A4)</span>
               </label>
             </div>
           </div>
@@ -557,20 +638,33 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
                   className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 transition-all"
                 >
                   {/* Card Header Toolbar */}
-                  <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                    {/* Editable Question Header Label */}
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-teal-800 dark:text-teal-300 font-exam-header text-base">
-                        {q.headerLabel || `س${q.questionNumber}`}
-                      </span>
-                      <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">
-                        {q.type}
+                      <input
+                        type="text"
+                        value={q.headerLabel || `س${q.questionNumber}`}
+                        onChange={e =>
+                          updateQuestion(qIdx, curr => ({
+                            ...curr,
+                            headerLabel: e.target.value,
+                            header: `${e.target.value}: ${curr.instruction || ''}`.trim(),
+                          }))
+                        }
+                        className="w-20 min-h-[36px] px-2 py-1 rounded-lg border border-teal-300 dark:border-teal-700 bg-teal-50/50 dark:bg-slate-800 font-bold text-teal-900 dark:text-teal-200 text-sm text-center"
+                        title="اسم وعنوان السؤال"
+                      />
+                      <span className="text-xs px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">
+                        {q.branches.length > 0 ? `${q.branches.length} فروع` : 'سؤال مباشر'}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      {/* Marks Input */}
-                      <div className="flex items-center gap-1">
-                        <label htmlFor={`q-marks-${q.id}`} className="text-xs font-bold text-slate-500">درجة السؤال:</label>
+                      {/* Question Marks Input */}
+                      <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <label htmlFor={`q-marks-${q.id}`} className="text-xs font-bold text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                          الدرجة:
+                        </label>
                         <input
                           id={`q-marks-${q.id}`}
                           type="number"
@@ -580,9 +674,20 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
                           onChange={e =>
                             updateQuestion(qIdx, curr => ({ ...curr, marks: Number(e.target.value) }))
                           }
-                          className="w-16 min-h-[40px] px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-center"
+                          className="w-14 min-h-[32px] px-1.5 py-0.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-bold text-center"
                         />
                       </div>
+
+                      {/* Format to Formal Ministerial Style Button */}
+                      <button
+                        type="button"
+                        onClick={() => formatQuestion(qIdx)}
+                        title="معالجة النص وتحويله إلى صيغة رسمية مرتبة"
+                        className="min-h-[38px] px-2.5 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold cursor-pointer transition flex items-center gap-1 border border-teal-200"
+                      >
+                        <span>✨</span>
+                        <span className="hidden sm:inline">تنسيق رسمي</span>
+                      </button>
 
                       {/* Move Up/Down Buttons */}
                       <button
@@ -590,7 +695,7 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
                         disabled={qIdx === 0}
                         onClick={() => handleMoveQuestion(qIdx, 'up')}
                         title="تحريك لأعلى"
-                        className="min-h-[40px] min-w-[40px] rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 text-xs font-bold cursor-pointer"
+                        className="min-h-[38px] min-w-[38px] rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 text-xs font-bold cursor-pointer flex items-center justify-center border border-slate-200 dark:border-slate-700"
                       >
                         ⬆️
                       </button>
@@ -599,26 +704,27 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
                         disabled={qIdx === ast.questions.length - 1}
                         onClick={() => handleMoveQuestion(qIdx, 'down')}
                         title="تحريك لأسفل"
-                        className="min-h-[40px] min-w-[40px] rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 text-xs font-bold cursor-pointer"
+                        className="min-h-[38px] min-w-[38px] rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 text-xs font-bold cursor-pointer flex items-center justify-center border border-slate-200 dark:border-slate-700"
                       >
                         ⬇️
                       </button>
+
                       {/* Delete Question */}
                       <button
                         type="button"
                         onClick={() => handleDeleteQuestion(qIdx)}
                         title="حذف السؤال"
-                        className="min-h-[40px] min-w-[40px] rounded-lg text-red-600 hover:bg-red-50 text-xs font-bold cursor-pointer"
+                        className="min-h-[38px] min-w-[38px] rounded-xl text-red-600 hover:bg-red-50 text-xs font-bold cursor-pointer flex items-center justify-center border border-red-200"
                       >
                         🗑️
                       </button>
                     </div>
                   </div>
 
-                  {/* Instruction Input */}
+                  {/* Main Question Instruction Input with onBlur auto-formatting */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <label htmlFor={`q-instr-${q.id}`} className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                      <label htmlFor={`q-instr-${q.id}`} className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         منطوق وتوجيه السؤال:
                       </label>
                       <button
@@ -629,102 +735,146 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
                         }}
                         className="text-xs text-teal-700 dark:text-teal-400 hover:underline font-bold flex items-center gap-1 cursor-pointer"
                       >
-                        <span>📐 إدراج معادلة</span>
+                        <span>📐 إدراج رمز أو معادلة</span>
                       </button>
                     </div>
                     <textarea
                       id={`q-instr-${q.id}`}
                       rows={2}
                       value={q.instruction || ''}
+                      onBlur={() => formatQuestion(qIdx)}
                       onChange={e =>
                         updateQuestion(qIdx, curr => ({
                           ...curr,
                           instruction: e.target.value,
-                          header: `${curr.headerLabel}: ${e.target.value}`.trim(),
+                          header: `${curr.headerLabel || `س${curr.questionNumber}`}: ${e.target.value}`.trim(),
                         }))
                       }
-                      placeholder="اكتب توجيه السؤال..."
+                      placeholder="اكتب توجيه السؤال (مثال: عرّف ما يأتي، علل ما يأتي، أجب عما يأتي)..."
                       className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm leading-relaxed focus:outline-teal-700"
                     />
                   </div>
 
-                  {/* Sub-Branches Section */}
-                  <div className="space-y-2 pt-1 ps-2 border-s-2 border-teal-200 dark:border-teal-900">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        فروع السؤال ({q.branches.length}):
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleAddBranch(qIdx)}
-                        className="min-h-[40px] px-2.5 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold cursor-pointer"
-                      >
-                        + إضافة فرع
-                      </button>
-                    </div>
-
-                    {q.branches.map((b, bIdx) => (
-                      <div
-                        key={b.id}
-                        className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <input
-                            type="text"
-                            value={b.label}
-                            onChange={e =>
-                              updateBranch(qIdx, bIdx, curr => ({ ...curr, label: e.target.value }))
-                            }
-                            className="w-16 min-h-[36px] px-2 py-0.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-xs font-bold text-center"
-                            placeholder="أ"
-                          />
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              min={0}
-                              max={100}
-                              value={b.marks || 0}
-                              onChange={e =>
-                                updateBranch(qIdx, bIdx, curr => ({
-                                  ...curr,
-                                  marks: Number(e.target.value),
-                                }))
-                              }
-                              className="w-14 min-h-[36px] px-2 py-0.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-xs font-bold text-center"
-                              title="درجة الفرع"
-                            />
+                  {/* Branching Section: Optional branches with add branch button and renameable labels */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+                    {q.branches.length === 0 ? (
+                      /* Question without branches */
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700">
+                        <span className="text-xs text-slate-500 font-medium">
+                          هذا السؤال مباشر بدون أفرع. هل يحتوي السؤال على فروع (أ، ب...)؟
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleAddBranch(qIdx)}
+                          className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200 text-xs font-bold border border-teal-300 dark:border-teal-700 transition cursor-pointer flex items-center gap-1.5 active:scale-95 shrink-0"
+                        >
+                          <span>+ إضافة فرع</span>
+                        </button>
+                      </div>
+                    ) : (
+                      /* Question with branches */
+                      <div className="space-y-2.5 ps-2 border-s-2 border-teal-400 dark:border-teal-700">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            فروع السؤال ({q.branches.length}):
+                          </span>
+                          <div className="flex items-center gap-1.5">
                             <button
                               type="button"
-                              onClick={() => {
-                                setFormulaTarget({ qIdx, bIdx });
-                                setFormulaEditorOpen(true);
-                              }}
-                              className="min-h-[36px] px-2 rounded-lg bg-teal-100 text-teal-900 text-xs font-bold cursor-pointer"
-                              title="إدراج معادلة رياضية"
+                              onClick={() => handleAddBranch(qIdx)}
+                              className="min-h-[36px] px-2.5 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold cursor-pointer transition flex items-center gap-1"
                             >
-                              📐
+                              <span>+ إضافة فرع</span>
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDeleteBranch(qIdx, bIdx)}
-                              className="min-h-[36px] px-2 text-red-600 hover:bg-red-50 rounded-lg text-xs font-bold cursor-pointer"
+                              onClick={() => handleClearBranches(qIdx)}
+                              className="min-h-[36px] px-2 py-1 rounded-lg text-slate-500 hover:text-red-600 text-xs font-medium cursor-pointer transition"
+                              title="إلغاء الأفرع وتحويله لسؤال مباشر"
                             >
-                              ✕
+                              إلغاء الأفرع
                             </button>
                           </div>
                         </div>
 
-                        <textarea
-                          rows={2}
-                          value={b.text}
-                          onChange={e =>
-                            updateBranch(qIdx, bIdx, curr => ({ ...curr, text: e.target.value }))
-                          }
-                          placeholder="نص الفرع..."
-                          className="w-full p-2 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-xs sm:text-sm leading-relaxed"
-                        />
+                        {q.branches.map((b, bIdx) => (
+                          <div
+                            key={b.id}
+                            className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2 shadow-xs"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              {/* Editable Branch Label/Name */}
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-slate-500">اسم الفرع:</span>
+                                <input
+                                  type="text"
+                                  value={b.label}
+                                  onChange={e =>
+                                    updateBranch(qIdx, bIdx, curr => ({ ...curr, label: e.target.value }))
+                                  }
+                                  className="w-20 min-h-[36px] px-2 py-0.5 rounded-lg border border-teal-300 bg-white dark:bg-slate-800 text-xs font-bold text-center"
+                                  placeholder="أ"
+                                  title="يمكنك تغيير اسم الفرع (مثال: أ، ب، أولاً، مسألة...)"
+                                />
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                {/* Branch Marks Input */}
+                                <div className="flex items-center gap-1">
+                                  <label className="text-[11px] font-bold text-slate-500">الدرجة:</label>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    value={b.marks || 0}
+                                    onChange={e =>
+                                      updateBranch(qIdx, bIdx, curr => ({
+                                        ...curr,
+                                        marks: Number(e.target.value),
+                                      }))
+                                    }
+                                    className="w-14 min-h-[34px] px-1.5 py-0.5 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-xs font-bold text-center"
+                                    title="درجة هذا الفرع"
+                                  />
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormulaTarget({ qIdx, bIdx });
+                                    setFormulaEditorOpen(true);
+                                  }}
+                                  className="min-h-[34px] px-2 rounded-lg bg-teal-100 text-teal-900 text-xs font-bold cursor-pointer"
+                                  title="إدراج معادلة أو رمز"
+                                >
+                                  📐
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteBranch(qIdx, bIdx)}
+                                  className="min-h-[34px] px-2 text-red-600 hover:bg-red-50 rounded-lg text-xs font-bold cursor-pointer"
+                                  title="حذف هذا الفرع"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+
+                            <textarea
+                              rows={2}
+                              value={b.text}
+                              onBlur={() => formatQuestion(qIdx)}
+                              onChange={e =>
+                                updateBranch(qIdx, bIdx, curr => ({ ...curr, text: e.target.value }))
+                              }
+                              placeholder="نص الفرع ومطلوبه..."
+                              className="w-full p-2 rounded-lg border border-slate-300 bg-white dark:bg-slate-800 text-xs sm:text-sm leading-relaxed"
+                            />
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               ))}
@@ -733,7 +883,7 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
               <button
                 type="button"
                 onClick={handleAddQuestion}
-                className="w-full min-h-[48px] py-3 rounded-2xl border-2 border-dashed border-teal-300 dark:border-teal-800 hover:bg-teal-50 dark:hover:bg-slate-800 text-teal-800 dark:text-teal-200 font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                className="w-full min-h-[50px] py-3 rounded-2xl border-2 border-dashed border-teal-400 dark:border-teal-700 hover:bg-teal-50 dark:hover:bg-slate-800 text-teal-900 dark:text-teal-200 font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-95"
               >
                 <span>➕ إضافة سؤال جديد للورقة الامتحانية</span>
               </button>

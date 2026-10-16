@@ -251,13 +251,13 @@ export const VoiceGradeEntryModal: React.FC<VoiceGradeEntryModalProps> = ({
   // Multimodal Gemini AI Analysis
   const analyzeAudioWithGemini = async (blob: Blob) => {
     setIsAiProcessing(true);
-    setAiStatusMessage('جاري إرسال المقطع إلى الذكاء الاصطناعي (Gemini Multimodal Audio)...');
+    setAiStatusMessage('جاري تحليل الصوت ورصد الدرجات تلقائياً...');
 
     const apiKey = getActiveGeminiApiKey();
 
     if (!apiKey) {
-      setAiStatusMessage('مفتاح الذكاء الاصطناعي غير مضبوط في لوحة الإدارة');
-      showToast({ message: 'مفتاح الذكاء الاصطناعي غير مضبوط في لوحة الإدارة', type: 'error' });
+      setAiStatusMessage('مفتاح التحليل الصوتي غير مضبوط في لوحة الإدارة');
+      showToast({ message: 'مفتاح التحليل الصوتي غير مضبوط في لوحة الإدارة', type: 'error' });
       setMatches([]);
       setIsAiProcessing(false);
       return;
@@ -386,7 +386,7 @@ ${JSON.stringify(studentsRosterSummary, null, 2)}
         if (mappedMatches.length > 0) {
           setMatches(mappedMatches);
           showToast({
-            message: `تم التعرف بنجاح على ${mappedMatches.length} طالباً بالذكاء الاصطناعي!`,
+            message: `تم التعرف بنجاح على درجات ${mappedMatches.length} طالباً!`,
             type: 'success',
           });
           setIsAiProcessing(false);
@@ -398,7 +398,7 @@ ${JSON.stringify(studentsRosterSummary, null, 2)}
       setMatches([]);
       showToast({
         message: lastErrorStatus
-          ? `تعذر الاتصال بالذكاء الاصطناعي (رمز: ${lastErrorStatus}). يرجى التحقق من اتصال الإنترنت.`
+          ? `تعذر معالجة التسجيل الصوتي (رمز: ${lastErrorStatus}). يرجى التحقق من استقرار الإنترنت.`
           : 'لم يتم رصد أسماء أو درجات واضحة في التسجيل. يرجى التحدث بوضوح والتأكد من ذكر أسماء الطلاب المسجلين.',
         type: 'info',
       });
@@ -458,10 +458,7 @@ ${JSON.stringify(studentsRosterSummary, null, 2)}
             </div>
             <div>
               <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <span>الرصد الصوتي بالذكاء الاصطناعي</span>
-                <span className="text-[10px] bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 px-2 py-0.5 rounded-full border border-teal-300 dark:border-teal-800 font-bold">
-                  Gemini Audio
-                </span>
+                <span>الرصد والتسجيل الصوتي</span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 سجل صوتك لقراءة أسماء الطلاب والدرجات باللهجة العراقية
@@ -568,7 +565,7 @@ ${JSON.stringify(studentsRosterSummary, null, 2)}
                   جاري الاستماع... اذكر اسم الطالب والدرجة (مثال: "كرار حسين 18، زينب محمد غائبة")
                 </span>
               ) : (
-                'الذكاء الاصطناعي مدرب على اللهجة العراقية والأرقام ("ثمنطعش"، "دعش"، "فول").'
+                'يدعم اللهجة العراقية والأرقام والدرجات الشائعة ("ثمنطعش"، "دعش"، "فول").'
               )}
             </p>
 
@@ -605,12 +602,12 @@ ${JSON.stringify(studentsRosterSummary, null, 2)}
             </div>
           </div>
 
-          {/* AI Processing Banner */}
+          {/* Processing Banner */}
           {isAiProcessing && (
             <div className="p-4 rounded-xl bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-teal-800 dark:text-teal-200 flex items-center gap-3 animate-pulse">
               <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
               <div className="text-xs font-bold leading-tight">
-                {aiStatusMessage || 'جاري معالجة الصوت بالذكاء الاصطناعي...'}
+                {aiStatusMessage || 'جاري تحليل الصوت ورصد الدرجات...'}
               </div>
             </div>
           )}

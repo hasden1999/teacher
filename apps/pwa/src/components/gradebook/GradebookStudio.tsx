@@ -19,7 +19,12 @@ import type {
 } from './types.js';
 import { CANONICAL_GRADE_COLUMNS } from './types.js';
 
-import { decomposeSimplifiedScore } from '@techeeer/core';
+import {
+  decomposeSimplifiedScore,
+  calculateSemesterGrade,
+  calculateAnnualEffort,
+  calculateFinalResult,
+} from '@techeeer/core';
 import { VoiceGradeEntryModal } from './VoiceGradeEntryModal.js';
 import { MobileStudentCardsView } from './MobileStudentCardsView.js';
 
@@ -198,6 +203,7 @@ export const GradebookStudio: React.FC = () => {
               score: newValue,
               isAbsent: false,
             };
+            next[studentId] = computeStudentDerivedGrades(next[studentId]);
           }
         });
         gradebookDbService.persistMatrix(divisionId, next).catch((err) => {
@@ -216,6 +222,53 @@ export const GradebookStudio: React.FC = () => {
     'component_participation',
   ];
 
+  const computeStudentDerivedGrades = (
+    studentGrades: Record<string, { score: number | null; isAbsent: boolean }>
+  ): Record<string, { score: number | null; isAbsent: boolean }> => {
+    const res = { ...studentGrades };
+
+    // 1. Calculate semester 1 average
+    const m1 = res.month_1?.score;
+    const m2 = res.month_2?.score;
+    if (typeof m1 === 'number' && typeof m2 === 'number') {
+      res.semester_1_avg = { score: calculateSemesterGrade(m1, m2), isAbsent: false };
+    } else if (typeof m1 === 'number') {
+      res.semester_1_avg = { score: m1, isAbsent: false };
+    } else if (typeof m2 === 'number') {
+      res.semester_1_avg = { score: m2, isAbsent: false };
+    }
+
+    // 2. Calculate semester 2 average
+    const m3 = res.month_3?.score;
+    const m4 = res.month_4?.score;
+    if (typeof m3 === 'number' && typeof m4 === 'number') {
+      res.semester_2_avg = { score: calculateSemesterGrade(m3, m4), isAbsent: false };
+    } else if (typeof m3 === 'number') {
+      res.semester_2_avg = { score: m3, isAbsent: false };
+    } else if (typeof m4 === 'number') {
+      res.semester_2_avg = { score: m4, isAbsent: false };
+    }
+
+    // 3. Calculate annual effort
+    const s1 = res.semester_1_avg?.score;
+    const mid = res.mid_term?.score;
+    const s2 = res.semester_2_avg?.score;
+    if (typeof s1 === 'number' && typeof mid === 'number' && typeof s2 === 'number') {
+      res.annual_effort = { score: calculateAnnualEffort(s1, mid, s2), isAbsent: false };
+    } else if (typeof s1 === 'number' && typeof mid === 'number') {
+      res.annual_effort = { score: Math.round((s1 + mid) / 2), isAbsent: false };
+    }
+
+    // 4. Final result
+    const effort = res.annual_effort?.score;
+    const finalExam = res.final_exam?.score;
+    if (typeof effort === 'number' && typeof finalExam === 'number') {
+      res.final_status = { score: calculateFinalResult(effort, finalExam), isAbsent: false };
+    }
+
+    return res;
+  };
+
   const handleGradeChange = (
     studentId: string,
     columnKey: string,
@@ -223,7 +276,7 @@ export const GradebookStudio: React.FC = () => {
     isAbsent: boolean
   ) => {
     setGrades((prev) => {
-      const studentGrades = { ...(prev[studentId] || {}) };
+      let studentGrades = { ...(prev[studentId] || {}) };
       studentGrades[columnKey] = { score, isAbsent };
 
       // 1. If modifying a sub-component of daily activity, compute the daily_total (out of 100) automatically
@@ -276,6 +329,8 @@ export const GradebookStudio: React.FC = () => {
         }
       }
 
+      studentGrades = computeStudentDerivedGrades(studentGrades);
+
       const nextMatrix = { ...prev, [studentId]: studentGrades };
       gradebookDbService.persistMatrix(divisionId, nextMatrix).catch((err) => {
         console.warn('Failed to persist grade:', err);
@@ -322,7 +377,7 @@ export const GradebookStudio: React.FC = () => {
           } catch {}
         }
 
-        next[studentId] = studentGrades;
+        next[studentId] = computeStudentDerivedGrades(studentGrades);
       });
       gradebookDbService.persistMatrix(divisionId, next).catch((err) => {
         console.warn('Failed to persist voice updates:', err);
