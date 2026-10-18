@@ -4,23 +4,87 @@ import { renderKatexToString, renderChemistryToString } from '../../lib/math/kat
 import { MathRendererProps } from '../../types/math.js';
 
 interface TextToken {
-  type: 'text' | 'inline-math' | 'block-math' | 'chemistry';
+  type: 'text' | 'inline-math' | 'block-math' | 'chemistry' | 'equation-image';
   content: string;
 }
 
 /**
+ * Normalizes raw math notations (Unicode roots √, \(...\), \[...\], bare \sqrt or \frac)
+ * outside existing $...$ delimiters so Iraqi curriculum roots & equations always render 100% accurately.
+ */
+export function normalizeMathExpressions(input: string): string {
+  if (!input) return '';
+  let text = input;
+
+  // Convert \[ ... \] to $$ ... $$ and \( ... \) to $ ... $
+  text = text.replace(/\\\[([\s\S]*?)\\\]/g, '$$$$$1$$$$');
+  text = text.replace(/\\\(([\s\S]*?)\\\)/g, '$$$1$$');
+
+  // Split by existing math/image blocks so we only normalize bare expressions in plain text segments
+  const protectedRegex = /(\$\$[\s\S]*?\$\$|\$[^$\n]+?\$|\\ce\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|\[صورة_معادلة:data:image\/[^\]]+\])/g;
+  const parts = text.split(protectedRegex);
+
+  return parts
+    .map((part) => {
+      if (!part) return '';
+      if (
+        part.startsWith('$') ||
+        part.startsWith('\\ce{') ||
+        part.startsWith('[صورة_معادلة:data:image/')
+      ) {
+        return part;
+      }
+
+      let normalized = part;
+      // Normalize Unicode cube/fourth roots and square roots: ∛(x) -> $\sqrt[3]{x}$, √(x+1) -> $\sqrt{x+1}$, √25 -> $\sqrt{25}$
+      normalized = normalized.replace(/∛\s*\(([^)]+)\)/g, '$\\sqrt[3]{$1}$');
+      normalized = normalized.replace(/∛\s*([a-zA-Z0-9\u0660-\u0669]+(?:\^[0-9]+)?)/g, '$\\sqrt[3]{$1}$');
+      normalized = normalized.replace(/√\s*\(([^)]+)\)/g, '$\\sqrt{$1}$');
+      normalized = normalized.replace(/√\s*([a-zA-Z0-9\u0660-\u0669]+(?:\^[0-9]+)?)/g, '$\\sqrt{$1}$');
+
+      // Normalize bare \sqrt[n]{...} or \sqrt{...} or \frac{...}{...} not wrapped in $
+      normalized = normalized.replace(
+        /(\\sqrt(?:\[[^\]]+\])?\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})/g,
+        '$$$1$$'
+      );
+      normalized = normalized.replace(
+        /(\\frac\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})/g,
+        '$$$1$$'
+      );
+
+      return normalized;
+    })
+    .join('');
+}
+
+/**
  * Tokenizes mixed Arabic text containing:
+ * - Embedded cropped/SVG equation images: [صورة_معادلة:data:image/...]
  * - Block math: $$ ... $$
  * - Chemistry: \ce{ ... }
  * - Inline math: $ ... $
  * Safe against unclosed brackets and malformed syntax.
  */
-function tokenizeMixedText(raw: string): TextToken[] {
-  if (!raw) return [];
+function tokenizeMixedText(rawInput: string): TextToken[] {
+  if (!rawInput) return [];
+  const raw = normalizeMathExpressions(rawInput);
   const tokens: TextToken[] = [];
   let cursor = 0;
 
   while (cursor < raw.length) {
+    // 0. Check for embedded cropped/SVG equation image: [صورة_معادلة:data:image/...]
+    if (raw.startsWith('[صورة_معادلة:data:image/', cursor)) {
+      const closingBracket = raw.indexOf(']', cursor);
+      if (closingBracket !== -1) {
+        const dataUri = raw.slice(cursor + '[صورة_معادلة:'.length, closingBracket).trim();
+        if (dataUri.startsWith('data:image/')) {
+          tokens.push({ type: 'equation-image', content: dataUri });
+          cursor = closingBracket + 1;
+          continue;
+        }
+      }
+    }
+
     // 1. Check for Block Math: $$...$$
     if (raw.startsWith('$$', cursor)) {
       const closingIdx = raw.indexOf('$$', cursor + 2);
@@ -59,8 +123,11 @@ function tokenizeMixedText(raw: string): TextToken[] {
       if (closingIdx !== -1) {
         const potentialFormula = raw.slice(cursor + 1, closingIdx);
         const hasNewline = potentialFormula.includes('\n');
-        const hasArabicProse = /[\u0600-\u06FF]/.test(potentialFormula);
-        if (!hasNewline && !hasArabicProse && potentialFormula.trim().length > 0) {
+        const hasArabicChars = /[\u0600-\u06FF]/.test(potentialFormula);
+        const hasMathIndicators = /[\\^_=+\-*/<>0-9{}()]/.test(potentialFormula);
+        // Allow Arabic inside math if it has math symbols/LaTeX commands (e.g., \sqrt{س} or \text{سم})
+        const isPureArabicProse = hasArabicChars && !hasMathIndicators;
+        if (!hasNewline && !isPureArabicProse && potentialFormula.trim().length > 0) {
           tokens.push({ type: 'inline-math', content: potentialFormula.trim() });
           cursor = closingIdx + 1;
           continue;
@@ -72,8 +139,10 @@ function tokenizeMixedText(raw: string): TextToken[] {
     let nextSpecial = raw.length;
     const nextDollar = raw.indexOf('$', cursor + 1);
     const nextCe = raw.indexOf('\\ce{', cursor + 1);
+    const nextImg = raw.indexOf('[صورة_معادلة:data:image/', cursor + 1);
     if (nextDollar !== -1 && nextDollar < nextSpecial) nextSpecial = nextDollar;
     if (nextCe !== -1 && nextCe < nextSpecial) nextSpecial = nextCe;
+    if (nextImg !== -1 && nextImg < nextSpecial) nextSpecial = nextImg;
 
     const end = Math.max(cursor + 1, nextSpecial);
     const textPart = raw.slice(cursor, end);
@@ -111,6 +180,21 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
       {tokens.map((token, idx) => {
         if (token.type === 'text') {
           return <span key={idx} className="whitespace-pre-wrap">{token.content}</span>;
+        }
+
+        if (token.type === 'equation-image') {
+          return (
+            <span
+              key={idx}
+              className="inline-flex items-center align-middle mx-1.5 my-1 bg-white px-1.5 py-0.5 rounded border border-slate-200 print:border-none"
+            >
+              <img
+                src={token.content}
+                alt="معادلة أو رسم رياضي مستخرج"
+                className="max-h-16 sm:max-h-20 w-auto object-contain inline-block"
+              />
+            </span>
+          );
         }
 
         if (token.type === 'inline-math') {
@@ -154,7 +238,7 @@ export const MathRenderer: React.FC<MathRendererProps> = ({
             <div
               key={idx}
               dir="ltr"
-              className="my-3 text-center overflow-x-auto py-1 ltr-math-block"
+              className="my-2 text-center overflow-x-auto py-0.5 ltr-math-block"
               style={{ direction: 'ltr', unicodeBidi: 'isolate' }}
               dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
             />

@@ -3,6 +3,7 @@
  * Supports 32-week distribution aligned with Iraqi MoE academic calendar.
  */
 import type { AnnualPlanWeek, DailyLessonPlan, TeacherProfile } from '../types/index.js';
+export declare const IRAQI_ACADEMIC_MONTHS: Record<number, string>;
 /**
  * Validates lesson plan class duration within standard Iraqi period limits (35 to 50 minutes).
  */
@@ -12,9 +13,8 @@ export declare function validateLessonPlanDuration(durationMinutes: number): boo
  */
 export declare function isValidAnnualWeek(week: number): boolean;
 /**
- * Generates an annual lesson plan distribution across exactly 32 teaching weeks.
- * Weeks 1-16: Semester 1 (Autumn term + midterm reviews)
- * Weeks 17-32: Semester 2 (Spring term + final reviews)
+ * Generates an annual lesson plan distribution across 32 teaching weeks (8 academic months)
+ * strictly grounded in the teacher's Iraqi curriculum chapters and topics.
  */
 export declare function createAnnualPlan(subjectId: string, grade: number, options?: {
     semesterSplit?: number;
@@ -37,6 +37,7 @@ export declare function calculateLessonProgress(lessons: Array<{
 };
 /**
  * Filters curriculum items strictly matching the teacher's registered subject specialization and grade.
+ * Safely handles subject aliases (e.g. 'mathematics' <-> 'math', 'islamic_education' <-> 'islamic').
  */
 export declare function filterCurriculumForTeacher<T extends {
     subjectId?: string;

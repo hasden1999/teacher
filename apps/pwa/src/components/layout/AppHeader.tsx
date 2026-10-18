@@ -12,6 +12,7 @@ export interface AppHeaderProps {
   trialLabel?: string;
   isActivated?: boolean;
   assignedClasses?: AssignedClass[];
+  activeClassId?: string;
   onSelectAssignedClass?: (cls: AssignedClass) => void;
   onOpenActivation?: () => void;
   onOpenProfile?: () => void;
@@ -21,17 +22,20 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   currentSectionTitle,
   dbStatus = 'ready',
   teacherName = 'الأستاذ',
-  subjectName = 'الرياضيات',
+  subjectName = 'العلوم',
   trialLabel,
   isActivated = false,
-  assignedClasses,
+  assignedClasses = [],
+  activeClassId = '',
   onSelectAssignedClass,
   onOpenActivation,
   onOpenProfile,
 }) => {
+  const safeName = typeof teacherName === 'string' && teacherName.trim() ? teacherName.trim() : 'الأستاذ';
+
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between h-14 sm:h-16 px-3 sm:px-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80 font-tajawal select-none transition-all shadow-xs"
+      className="no-print sticky top-0 z-30 flex items-center justify-between h-14 sm:h-16 px-3 sm:px-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80 font-tajawal select-none transition-all shadow-xs"
       style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
     >
       {/* Brand & Section Title */}
@@ -58,7 +62,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             type="button"
             onClick={onOpenActivation}
             aria-label={isActivated ? 'الحساب مفعل برخصة رقمية' : `فترة التجربة: ${trialLabel || 'غير مفعل'}`}
-            className={`min-h-[44px] px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 touch-manipulation ${
+            className={`min-h-[40px] px-2.5 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 touch-manipulation ${
               isActivated
                 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-300/80 dark:border-emerald-800'
                 : 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 hover:bg-amber-100 border border-amber-300/80 dark:border-amber-800'
@@ -81,33 +85,19 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <OfflineBadge />
         </div>
 
-        {/* Compact Connection Pulse Dot for 360px mobile view */}
-        <button
-          type="button"
-          onClick={() => {
-            window.location.hash = '#backups';
-          }}
-          className="sm:hidden flex items-center justify-center p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition min-h-[44px] min-w-[44px] cursor-pointer"
-          title="حالة قاعدة البيانات والنسخ الاحتياطي - انقر للانتقال"
-          aria-label="النسخ الاحتياطي وقاعدة البيانات"
-        >
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-xs ring-2 ring-emerald-200 dark:ring-emerald-900 animate-pulse" />
-        </button>
-
-        {/* Multi-Class Switcher if multiple classes assigned */}
+        {/* Multi-Class Switcher Dropdown in Header */}
         {assignedClasses && assignedClasses.length > 0 && onSelectAssignedClass && (
-          <div className="hidden sm:flex items-center gap-1 bg-teal-50/70 dark:bg-slate-800 px-2 py-1 rounded-xl text-xs border border-teal-200 dark:border-slate-700">
-            <span className="text-[11px] font-bold text-teal-800 dark:text-teal-300">الصف:</span>
+          <div className="hidden md:flex items-center gap-1.5 bg-teal-50/90 dark:bg-slate-800 px-2.5 py-1.5 rounded-xl text-xs border border-teal-200 dark:border-slate-700">
+            <span className="text-[11px] font-extrabold text-teal-800 dark:text-teal-300">الصف والشعبة:</span>
             <select
-              aria-label="تبديل الصف الدراسي المسند"
-              defaultValue=""
+              aria-label="تبديل الصف الدراسي والشعبة"
+              value={activeClassId || assignedClasses[0]?.id || ''}
               onChange={(e) => {
-                const found = assignedClasses.find(c => c.id === e.target.value);
+                const found = assignedClasses.find((c) => c.id === e.target.value);
                 if (found) onSelectAssignedClass(found);
               }}
-              className="bg-transparent font-bold text-slate-800 dark:text-slate-100 border-none outline-none cursor-pointer text-xs max-w-[130px] truncate"
+              className="bg-transparent font-extrabold text-slate-800 dark:text-slate-100 border-none outline-none cursor-pointer text-xs max-w-[180px] truncate"
             >
-              <option value="" disabled>{subjectName}</option>
               {assignedClasses.map((cls) => (
                 <option key={cls.id} value={cls.id} className="text-slate-900 bg-white dark:bg-slate-800">
                   {cls.label}
@@ -121,20 +111,20 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <div
           onClick={onOpenProfile}
           className="flex items-center gap-1.5 sm:gap-2 ps-1.5 sm:ps-2 border-s border-slate-200 dark:border-slate-800 cursor-pointer hover:opacity-80 active:scale-95 transition min-h-[44px]"
-          title="بيانات المعلم"
+          title="بيانات المعلم والاختصاص"
           role="button"
           tabIndex={0}
-          aria-label={`الملف الشخصي: ${teacherName}`}
+          aria-label={`الملف الشخصي: ${safeName}`}
         >
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700 border border-teal-600/40 flex items-center justify-center text-teal-800 dark:text-teal-300 font-extrabold text-xs shadow-xs">
-            {teacherName.slice(0, 1)}
+            {safeName.slice(0, 1)}
           </div>
           <div className="hidden lg:flex flex-col text-start">
             <span className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
-              {teacherName}
+              {safeName}
             </span>
-            <span className="text-[10px] text-teal-700 dark:text-teal-400">
-              {subjectName}
+            <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400">
+              اختصاص: {subjectName}
             </span>
           </div>
         </div>

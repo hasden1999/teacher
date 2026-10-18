@@ -1,6 +1,7 @@
 /**
  * @techeeer/content - Official Curriculum Chapters & Units Directory
  */
+import { normalizeSubjectFamily } from './subjects.js';
 export const IRAQI_CHAPTERS = [
     // ==========================================
     // العلوم - الصف الخامس الابتدائي (Primary Grade 5 Science)
@@ -464,25 +465,386 @@ export const IRAQI_CHAPTERS = [
         estimatedPeriods: 8,
         semester: 1,
     },
+    // ==========================================
+    // اللغة العربية (Arabic Language - All Stages)
+    // ==========================================
+    {
+        id: 'ch_arab_3_c1',
+        subjectId: 'arabic_intermediate',
+        subjectNameAr: 'اللغة العربية',
+        grade: 3,
+        stage: 'intermediate',
+        stream: 'general',
+        unitNumber: 1,
+        unitTitle: 'قواعد اللغة العربية والمشتقات',
+        chapterNumber: 1,
+        chapterTitle: 'الميزان الصرفي وأبواب الأفعال الثلاثية',
+        topics: [
+            'الميزان الصرفي ووزن الكلمات المجردة والمزيدة والحذف',
+            'أبواب الأفعال الثلاثية المجردة الستة ومصادرها القياسية والسماعية',
+            'مصادر الأفعال غير الثلاثية (الرباعية والخماسية والسداسية)',
+        ],
+        learningOutcomes: [
+            'يزن الكلمات العربية المجردة والمزيدة والتي أصابها حذف بدقة',
+            'يميز أبواب الأفعال الثلاثية ويشتق مصادرها القياسية',
+        ],
+        estimatedPeriods: 12,
+        semester: 1,
+    },
+    {
+        id: 'ch_arab_3_c2',
+        subjectId: 'arabic_intermediate',
+        subjectNameAr: 'اللغة العربية',
+        grade: 3,
+        stage: 'intermediate',
+        stream: 'general',
+        unitNumber: 2,
+        unitTitle: 'المشتقات العاملة وغير العاملة',
+        chapterNumber: 2,
+        chapterTitle: 'اسم الفاعل وصيغ المبالغة والصفة المشبهة واسم المفعول',
+        topics: [
+            'اشتقاق اسم الفاعل وشروط عمله وإعراب معموله',
+            'صيغ المبالغة الخمس القياسية وعملها',
+            'الصفة المشبهة باسم الفاعل وأوزانها وإعراب معمولها',
+            'اشتقاق اسم المفعول وعمله وإعراب نائب الفاعل بعده',
+            'اسم التفضيل واسم الآلة والعدد وتذكيره وتأنيثه',
+        ],
+        learningOutcomes: [
+            'يصوغ المشتقات من الأفعال الثلاثية وغير الثلاثية',
+            'يعرب معمول اسم الفاعل واسم المفعول والصفة المشبهة إعراباً وزارياً تاماً',
+        ],
+        estimatedPeriods: 16,
+        semester: 1,
+    },
+    {
+        id: 'ch_arab_6_c1',
+        subjectId: 'arabic_preparatory',
+        subjectNameAr: 'اللغة العربية',
+        grade: 6,
+        stage: 'preparatory',
+        stream: 'general',
+        unitNumber: 1,
+        unitTitle: 'أساليب الطلب والنفي في العربية',
+        chapterNumber: 1,
+        chapterTitle: 'أسلوب الاستفهام وأسلوب النفي',
+        topics: [
+            'الاستفهام الحقيقي والمجازي وخصائص الهمزة وهل',
+            'معاني وإعراب أسماء الاستفهام الدالة على العاقل وغير العاقل والزمان والمكان والحال والحدث',
+            'أسلوب النفي الصريح والضمني وأدوات النفي العاملة وغير العاملة (ليس، ما، إن، لا، لم، لما، لن، لام الجحود)',
+        ],
+        learningOutcomes: [
+            'يميز خصائص الهمزة عن هل بالأدلة والشواهد القرآنية والشعرية',
+            'يعرب أسماء الاستفهام مع بيان السبب القواعدي بدقة',
+        ],
+        estimatedPeriods: 18,
+        semester: 1,
+    },
+    {
+        id: 'ch_arab_6_c2',
+        subjectId: 'arabic_preparatory',
+        subjectNameAr: 'اللغة العربية',
+        grade: 6,
+        stage: 'preparatory',
+        stream: 'general',
+        unitNumber: 2,
+        unitTitle: 'التقديم والتأخير والتوكيد والأدب الحديث',
+        chapterNumber: 2,
+        chapterTitle: 'تقديم الخبر على المبتدأ والمفعول به على فعله والأدب والنصوص',
+        topics: [
+            'تقديم الخبر على المبتدأ وجوباً وجوازاً مع بيان الغرض',
+            'تقديم المفعول به على فعله وجوباً وجوازاً',
+            'أسلوب التوكيد (اللفظي، المعنوي، بالحروف، بالقصر)',
+            'الأدب العربي الحديث ومدرسة الإحياء ومدرسة الشعر الحر (السياب، نازك الملائكة، الجواهري)',
+        ],
+        learningOutcomes: [
+            'يحدد حكم التقديم والسبب في النصوص القرآنية والشعرية',
+            'يحلل النصوص الأدبية والمدارس الشعرية العراقية والعربية',
+        ],
+        estimatedPeriods: 18,
+        semester: 2,
+    },
+    // ==========================================
+    // علم الأحياء (Biology - Intermediate & Preparatory)
+    // ==========================================
+    {
+        id: 'ch_bio_3_c1',
+        subjectId: 'biology_intermediate',
+        subjectNameAr: 'علم الأحياء',
+        grade: 3,
+        stage: 'intermediate',
+        stream: 'general',
+        unitNumber: 1,
+        unitTitle: 'بناء جسم الإنسان وأجهزته الحيوية',
+        chapterNumber: 1,
+        chapterTitle: 'تركيب الخلية والأنسجة والجهاز الهيكلي والعضلي',
+        topics: [
+            'تركيب الخلية الحيوانية والعضيات الخلوية ووظائفها',
+            'الأنسجة الجسمية الأربعة (الطلائية، الرابطة، العضلية، العصبية)',
+            'الجهاز الهيكلي وأقسامه (الهيكل المحوري والهيكل الطرفي) والتئام الكسور',
+            'الجهاز العضلي وأنواع العضلات (الهيكلية، الملساء، القلبية) والإعياء العضلي',
+        ],
+        learningOutcomes: [
+            'يقارن بين أنواع الأنسجة والعضلات في جسم الإنسان',
+            'يوضح التركيب الكيميائي والتشريحي للعظم والفقرة النموذجية',
+        ],
+        estimatedPeriods: 12,
+        semester: 1,
+    },
+    {
+        id: 'ch_bio_3_c2',
+        subjectId: 'biology_intermediate',
+        subjectNameAr: 'علم الأحياء',
+        grade: 3,
+        stage: 'intermediate',
+        stream: 'general',
+        unitNumber: 2,
+        unitTitle: 'أجهزة الهضم والدوران والتنفس والإخراج',
+        chapterNumber: 2,
+        chapterTitle: 'الجهاز الهضمي وجهاز الدوران والجهاز التنفسي',
+        topics: [
+            'أجزاء القناة الهضمية والغدد الملحقة (اللعابية، الكبد، البنكرياس)',
+            'مكونات الدم والقلب والدورة الدموية الكبرى والصغرى وفصائل الدم وعامل الريسي Rh',
+            'الجهاز التنفسي وآلية الشهيق والزفير والتنفس الخارجي والداخلي',
+            'الإخراج الكلوي والجلدي وبنية النفرون',
+        ],
+        learningOutcomes: [
+            'يتتبع الدورة الدموية الكبرى والصغرى والبابية الكبدية',
+            'يفسر شروط نقل الدم بين الفصائل المختلفة',
+        ],
+        estimatedPeriods: 14,
+        semester: 1,
+    },
+    {
+        id: 'ch_bio_6_c1',
+        subjectId: 'biology_scientific',
+        subjectNameAr: 'علم الأحياء',
+        grade: 6,
+        stage: 'preparatory',
+        stream: 'scientific',
+        unitNumber: 1,
+        unitTitle: 'بيولوجيا الخلية والأنسجة',
+        chapterNumber: 1,
+        chapterTitle: 'الخلية (The Cell) والانقسام الخلوي',
+        topics: [
+            'الخلايا بدائية النواة وحقيقية النواة والعضيات الغشائية (المايتوكوندريا، البلاستيدات، جهاز كولجي، الجسيمات الحالة)',
+            'الأنشطة الخلوية (الانتشار، التناضح، النقل الفعال، البلعمة، الشرب الخلوي) والأيض الخلوي',
+            'الانقسام الخيطي غير المباشر (Mitosis) والانقسام الاختزالي الأول والثاني (Meiosis)',
+        ],
+        learningOutcomes: [
+            'يقارن بدقة بين أطوار الانقسام الخيطي والانقسام الاختزالي',
+            'يفسر ظاهرة العبور الوراثي (التعابر) في الطور التمهيدي الأول',
+        ],
+        estimatedPeriods: 16,
+        semester: 1,
+    },
+    {
+        id: 'ch_bio_6_c2',
+        subjectId: 'biology_scientific',
+        subjectNameAr: 'علم الأحياء',
+        grade: 6,
+        stage: 'preparatory',
+        stream: 'scientific',
+        unitNumber: 1,
+        unitTitle: 'الأنسجة والتكاثر والوراثة',
+        chapterNumber: 2,
+        chapterTitle: 'الأنسجة النباتية والحيوانية والتكاثر والوراثة المندلية',
+        topics: [
+            'الأنسجة النباتية (المرستيمية، الأساس، البشرة، الوعائية: الخشب واللحاء)',
+            'الأنسجة الحيوانية (الظهارية، الضامة/الرابطة، الغضروف، العظم، الدم، العضلية، العصبية)',
+            'التكاثر في الفيروسات والبكتيريا والطليعيات والنباتات الزهرية والحيوانات',
+            'الوراثة المندلية (قانون مندل الأول والثاني، التضريب الاختباري والرجعي) والوراثة ما بعد مندل والأساس الجزيئي للوراثة (DNA & RNA)',
+        ],
+        learningOutcomes: [
+            'يحل المسائل الوراثية المندلية واللامندلية والأليلات المتعددة',
+            'يرسم المقاطع النسيجية المعتمدة في الامتحان الوزاري',
+        ],
+        estimatedPeriods: 20,
+        semester: 2,
+    },
+    // ==========================================
+    // اللغة الإنكليزية (English for Iraq)
+    // ==========================================
+    {
+        id: 'ch_eng_3_u1',
+        subjectId: 'english_intermediate',
+        subjectNameAr: 'اللغة الإنكليزية',
+        grade: 3,
+        stage: 'intermediate',
+        stream: 'general',
+        unitNumber: 1,
+        unitTitle: 'Unit 1: Describing Places, People & Daily Routines',
+        chapterNumber: 1,
+        chapterTitle: 'Describing Places (There is/are), Telling the Time & Polite Description',
+        topics: [
+            'Describing places using There is / There are, It has, and adjectives order',
+            'Telling the time, Present Continuous & Past Continuous tenses',
+            'Polite description for people, Giving reasons with (so you can / to help you)',
+            'Reading Comprehension (Car of the Year - Panther 3.0D) & Writing an email describing a friend',
+        ],
+        learningOutcomes: [
+            'Uses Present and Past Continuous accurately in affirmative, negative, and question forms',
+            'Answers ministerial comprehension questions on Unit 1 textbook passages',
+        ],
+        estimatedPeriods: 14,
+        semester: 1,
+    },
+    {
+        id: 'ch_eng_3_u2',
+        subjectId: 'english_intermediate',
+        subjectNameAr: 'اللغة الإنكليزية',
+        grade: 3,
+        stage: 'intermediate',
+        stream: 'general',
+        unitNumber: 2,
+        unitTitle: 'Unit 2 & 3: Spare Time, Preferences, Comparatives & Conditionals',
+        chapterNumber: 2,
+        chapterTitle: 'Expressing Likes/Dislikes, Suggestions, Comparatives & Conditional Clauses',
+        topics: [
+            'Talking about likes and dislikes (I love, enjoy, hate + V-ing) & Making suggestions/invitations',
+            'Present Simple vs. Past Simple & Writing a Fact File on a book or TV programme',
+            'Comparative and Superlative adjectives (as...as, more than) & First/Second Conditionals (If)',
+            'Passive Voice & Reading Comprehension (The Fastest Living Things - Falcons)',
+        ],
+        learningOutcomes: [
+            'Applies comparative structures and If-conditionals accurately',
+            'Writes structured paragraphs following English for Iraq ministerial rubrics',
+        ],
+        estimatedPeriods: 16,
+        semester: 1,
+    },
+    {
+        id: 'ch_eng_6_u1',
+        subjectId: 'english_preparatory',
+        subjectNameAr: 'اللغة الإنكليزية',
+        grade: 6,
+        stage: 'preparatory',
+        stream: 'general',
+        unitNumber: 1,
+        unitTitle: 'Unit 1 & 2: Health, Safety & Law Enforcement',
+        chapterNumber: 1,
+        chapterTitle: 'Past Simple vs. Past Continuous, Phrasal Verbs, Used to & Obligations',
+        topics: [
+            'Linking Past Simple and Past Continuous with (when / while / as / and)',
+            'Adjectives ending in (-ed / -ing), Adjectives vs. Adverbs (-ly / -ful / -fully)',
+            'Phrasal Verbs with object pronouns & Expressions of quantity (much/many/a few/a little)',
+            'Used to + infinitive, Necessity/Obligation (must/have to/need to), Expectation (should), Causative Verbs (have/get/make)',
+            'Textbook Passages (Zaid Tariq, Mustafa Ahmad, Police Officers Duties, Radar) & Literature Focus (The Swing / The Canary)',
+        ],
+        learningOutcomes: [
+            'Solves ministerial grammar transformations with 100% accuracy',
+            'Answers textbook passage and literature questions for 6th Preparatory',
+        ],
+        estimatedPeriods: 18,
+        semester: 1,
+    },
+    // ==========================================
+    // التربية الإسلامية والاجتماعيات والحاسوب
+    // ==========================================
+    {
+        id: 'ch_isl_all_u1',
+        subjectId: 'islamic_intermediate',
+        subjectNameAr: 'التربية الإسلامية',
+        grade: 3,
+        stage: 'intermediate',
+        stream: 'general',
+        unitNumber: 1,
+        unitTitle: 'القرآن الكريم وأحكام التلاوة والحديث الشريف',
+        chapterNumber: 1,
+        chapterTitle: 'أحكام التلاوة (المدود وأحكام النون الساكنة) والسور المقررة والحديث النبوي',
+        topics: [
+            'أحكام التلاوة: المد المتصل والمد المنفصل ومد البدل وأحكام النون الساكنة والتنوين',
+            'تلاوة وحفظ وتفسير الآيات القرآنية المقررة وبيان المعاني والدروس المستنبطة',
+            'الأحاديث النبوية الشريفة للحفظ والشرح والمناقشة والسيرة النبوية والتهذيب',
+        ],
+        learningOutcomes: [
+            'يستخرج أحكام التلاوة والمدود من الآيات الكريمة مع ذكر السبب',
+            'يفسر الآيات الكريمة ويشرح الأحاديث النبوية المقررة',
+        ],
+        estimatedPeriods: 14,
+        semester: 1,
+    },
+    {
+        id: 'ch_soc_3_c1',
+        subjectId: 'social_intermediate',
+        subjectNameAr: 'الاجتماعيات',
+        grade: 3,
+        stage: 'intermediate',
+        stream: 'general',
+        unitNumber: 1,
+        unitTitle: 'جغرافية العراق وتاريخه الحديث والتربية الوطنية',
+        chapterNumber: 1,
+        chapterTitle: 'الخصائص الطبيعية والبشرية لجغرافية العراق وتاريخ العراق الحديث',
+        topics: [
+            'موقع العراق الفلكي والجغرافي وأقسام سطح العراق (المنطقة الجبلية، المتموجة، السهل الرسوبي، الهضبة الغربية)',
+            'المناخ والنبات الطبيعي والموارد المائية (نهرا دجلة والفرات وشط العرب والمشاريع الإروائية)',
+            'النشاط الاقتصادي (الزراعة، النفط والثروات المعدنية، الصناعة، النقل والتجارة)',
+            'تاريخ العراق الحديث والمعاصر وثورة العشرين وتأسيس الدولة العراقية والقيم الوطنية',
+        ],
+        learningOutcomes: [
+            'يحدد أقسام التضاريس والمشاريع الإروائية على خريطة العراق الصماء',
+            'يعلل الظواهر الجغرافية والأحداث التاريخية الوطنية بدقة',
+        ],
+        estimatedPeriods: 16,
+        semester: 1,
+    },
+    {
+        id: 'ch_comp_4_c1',
+        subjectId: 'computer_intermediate',
+        subjectNameAr: 'الحاسوب',
+        grade: 2,
+        stage: 'intermediate',
+        stream: 'general',
+        unitNumber: 1,
+        unitTitle: 'مكونات الحاسوب ونظم التشغيل والبرمجة',
+        chapterNumber: 1,
+        chapterTitle: 'الكيان المادي والبرمجي وشبكات الحاسوب والخوارزميات',
+        topics: [
+            'وحدات الإدخال والإخراج ووحدة المعالجة المركزية CPU والذاكرة',
+            'نظم التشغيل وإدارة الملفات والجداول الإلكترونية',
+            'مبادئ الخوارزميات والمخططات الانسيابية والبرمجة بلغة Scratch',
+        ],
+        learningOutcomes: [
+            'يميز بين المكونات المادية والبرمجية للحاسوب',
+            'يصمم خوارزميات ومخططات انسيابية لحل المسائل البرمجية',
+        ],
+        estimatedPeriods: 10,
+        semester: 1,
+    },
 ];
 export function getAllChapters() {
     return [...IRAQI_CHAPTERS];
 }
 export function getChaptersBySubject(subjectId, grade, stream) {
+    if (!subjectId || typeof subjectId !== 'string') {
+        return [];
+    }
     const cleanId = subjectId.toLowerCase().trim();
-    return IRAQI_CHAPTERS.filter((ch) => {
-        const matchesSubject = ch.subjectId.toLowerCase() === cleanId ||
+    const targetFamily = normalizeSubjectFamily(subjectId);
+    const familyMatched = IRAQI_CHAPTERS.filter((ch) => {
+        const chFamily = normalizeSubjectFamily(ch.subjectId);
+        const matchesSubject = chFamily === targetFamily ||
+            ch.subjectId.toLowerCase() === cleanId ||
             ch.subjectId.toLowerCase().includes(cleanId) ||
             cleanId.includes(ch.subjectId.toLowerCase()) ||
             ch.subjectNameAr.includes(cleanId);
         if (!matchesSubject)
             return false;
-        if (grade !== undefined && ch.grade !== grade)
-            return false;
         if (stream && ch.stream && ch.stream !== 'general' && ch.stream !== stream)
             return false;
         return true;
     });
+    if (grade !== undefined) {
+        const exactGradeMatches = familyMatched.filter((ch) => ch.grade === grade);
+        if (exactGradeMatches.length > 0) {
+            return exactGradeMatches;
+        }
+        // If no exact grade chapter is seeded for this grade, adapt the subject's chapters to this grade so the teacher always sees their subject's chapters
+        return familyMatched.map((ch) => ({
+            ...ch,
+            grade,
+        }));
+    }
+    return familyMatched;
 }
 export function getChapterById(id) {
     return IRAQI_CHAPTERS.find((ch) => ch.id === id);

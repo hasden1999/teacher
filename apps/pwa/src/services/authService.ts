@@ -135,6 +135,8 @@ export interface TeacherAccount {
   grade: number;
   stream: 'general' | 'scientific' | 'literary';
   subject: string;
+  division?: string;
+  activeClassId?: string;
   assignedClasses?: AssignedClass[];
   registeredAt: number;
 }
@@ -365,10 +367,91 @@ export const authService = {
   },
 
   /**
-   * Get currently saved teacher profile
+   * Get currently saved teacher profile (safely normalized to prevent runtime crashes)
    */
   getTeacherProfile(): TeacherAccount | null {
-    return this.readTamperResistant<TeacherAccount>(STORAGE_KEY_TEACHER);
+    const raw = this.readTamperResistant<TeacherAccount>(STORAGE_KEY_TEACHER);
+    if (!raw || typeof raw !== 'object') return null;
+
+    const safeAssigned: AssignedClass[] = Array.isArray(raw.assignedClasses)
+      ? raw.assignedClasses
+          .filter((c) => c && typeof c === 'object')
+          .map((c, idx) => ({
+            id: c.id || `cls_extra_${idx}`,
+            stage: c.stage || raw.stage || 'primary',
+            grade: Number(c.grade) || raw.grade || 5,
+            stream: c.stream || raw.stream || 'general',
+            subject: c.subject || raw.subject || 'science_primary',
+            division: c.division || 'أ',
+            label: c.label || `الصف ${c.grade || 5} - شعبة ${c.division || 'أ'}`,
+          }))
+      : [];
+
+    return {
+      id: raw.id || 'teach_default',
+      fullName: typeof raw.fullName === 'string' && raw.fullName.trim() ? raw.fullName : 'الأستاذ',
+      phone: typeof raw.phone === 'string' ? raw.phone : '',
+      schoolName: typeof raw.schoolName === 'string' && raw.schoolName.trim() ? raw.schoolName : 'المدرسة',
+      governorate: typeof raw.governorate === 'string' && raw.governorate.trim() ? raw.governorate : 'بغداد',
+      stage: raw.stage || 'primary',
+      grade: Number(raw.grade) || 5,
+      stream: raw.stream || 'general',
+      subject: typeof raw.subject === 'string' && raw.subject.trim() ? raw.subject : 'science_primary',
+      division: typeof raw.division === 'string' && raw.division.trim() ? raw.division : 'أ',
+      activeClassId: raw.activeClassId,
+      assignedClasses: safeAssigned,
+      registeredAt: Number(raw.registeredAt) || Date.now(),
+    };
+  },
+
+  /**
+   * Returns a unified list of all classes & divisions for the teacher (primary class + assignedClasses)
+   */
+  getTeacherAllClasses(profile?: TeacherAccount | null): AssignedClass[] {
+    const acc = profile ?? this.getTeacherProfile();
+    if (!acc) return [];
+
+    const stageLabels: Record<string, string> = {
+      primary: 'الابتدائي',
+      intermediate: 'المتوسط',
+      preparatory: 'الإعدادي',
+    };
+    const gradeLabels: Record<number, string> = {
+      1: 'الأول',
+      2: 'الثاني',
+      3: 'الثالث',
+      4: 'الرابع',
+      5: 'الخامس',
+      6: 'السادس',
+    };
+
+    const primaryDivision = acc.division || 'أ';
+    const primaryId = `primary_${acc.stage}_${acc.grade}_${primaryDivision}`;
+    const primaryClass: AssignedClass = {
+      id: primaryId,
+      stage: acc.stage || 'primary',
+      grade: acc.grade || 5,
+      stream: acc.stream || 'general',
+      subject: acc.subject || 'science_primary',
+      division: primaryDivision,
+      label: `الصف ${gradeLabels[acc.grade] || acc.grade} ${stageLabels[acc.stage] || ''} - شعبة ${primaryDivision}`,
+    };
+
+    const extras = Array.isArray(acc.assignedClasses) ? acc.assignedClasses : [];
+    const seen = new Set<string>([primaryId]);
+    const list: AssignedClass[] = [primaryClass];
+
+    for (const item of extras) {
+      if (!item || !item.id) continue;
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      list.push({
+        ...item,
+        division: item.division || 'أ',
+      });
+    }
+
+    return list;
   },
 
   /**
@@ -385,13 +468,15 @@ export const authService = {
     const updated: TeacherAccount = {
       id: existing?.id || `teach_${now}_${randHex}`,
       fullName: profile.fullName || existing?.fullName || 'الأستاذ',
-      phone: profile.phone || existing?.phone || '',
+      phone: profile.phone !== undefined ? profile.phone : (existing?.phone || ''),
       schoolName: profile.schoolName || existing?.schoolName || 'المدرسة',
       governorate: profile.governorate || existing?.governorate || 'بغداد',
       stage: profile.stage || existing?.stage || 'primary',
       grade: profile.grade || existing?.grade || 5,
       stream: profile.stream || existing?.stream || 'general',
       subject: profile.subject || existing?.subject || 'science_primary',
+      division: profile.division || existing?.division || 'أ',
+      activeClassId: profile.activeClassId !== undefined ? profile.activeClassId : existing?.activeClassId,
       assignedClasses: profile.assignedClasses !== undefined ? profile.assignedClasses : (existing?.assignedClasses || []),
       registeredAt: existing?.registeredAt || now,
     };

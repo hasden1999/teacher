@@ -168,40 +168,57 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
   const { showToast } = useToast();
 
   const handleAddClass = () => {
-    const subObj = newClassAvailableSubjects.find(s => s.id === newClassSubject);
+    const subObj = newClassAvailableSubjects.find((s) => s.id === newClassSubject);
     const grdLbl = getGradeDisplayLabel(newClassParsed.stage, newClassParsed.grade, newClassParsed.stream);
-    const label = `${grdLbl} - ${subObj?.nameAr || newClassSubject}`;
+    const cleanDiv = newClassDivision.trim() || 'أ';
+    const label = `${grdLbl} - شعبة ${cleanDiv} (${subObj?.nameAr || newClassSubject})`;
 
     const newCls: AssignedClass = {
       id: `cls_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       stage: newClassParsed.stage,
       grade: newClassParsed.grade,
       stream: newClassParsed.stream,
-      subject: newClassSubject,
+      subject: newClassSubject || selectedSubject,
       label,
-      division: newClassDivision.trim() || 'أ',
+      division: cleanDiv,
     };
 
     const nextList = [...assignedClasses, newCls];
     setAssignedClasses(nextList);
 
-    // Save immediately to persistent storage
+    // Save immediately to persistent storage and activate the newly added class
     authService.saveTeacherProfile({
       assignedClasses: nextList,
+      activeClassId: newCls.id,
     });
 
-    showToast({ message: `تمت إضافة الصف: ${label}`, type: 'success' });
+    if (onTeacherChange) {
+      onTeacherChange({
+        ...teacher,
+        stage: newCls.stage,
+        grade: newCls.grade,
+        stream: newCls.stream,
+        subject: newCls.subject,
+        secondarySubjects: [],
+      });
+    }
+
+    showToast({ message: `تمت إضافة وتفعيل: ${label}`, type: 'success' });
   };
 
   const handleRemoveClass = (id: string) => {
-    const nextList = assignedClasses.filter(c => c.id !== id);
+    const nextList = assignedClasses.filter((c) => c.id !== id);
     setAssignedClasses(nextList);
 
     authService.saveTeacherProfile({
       assignedClasses: nextList,
     });
 
-    showToast({ message: 'تم إزالة الصف من قائمة التدريس', type: 'info' });
+    if (onTeacherChange) {
+      onTeacherChange({ ...teacher });
+    }
+
+    showToast({ message: 'تم إزالة الصف من قائمة التدريس وتحديث الشاشة الرئيسية', type: 'info' });
   };
 
   // Modals state
@@ -212,6 +229,7 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
   const activeLicense = authService.getActiveLicense();
 
   const handleSaveProfile = () => {
+    const primaryId = `primary_${parsedSelection.stage}_${parsedSelection.grade}_${savedProfile?.division || 'أ'}`;
     authService.saveTeacherProfile({
       fullName: teacherName.trim(),
       phone: phone.trim(),
@@ -221,6 +239,7 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
       grade: parsedSelection.grade,
       stream: parsedSelection.stream,
       subject: selectedSubject,
+      activeClassId: primaryId,
       assignedClasses,
     });
 
@@ -231,10 +250,11 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
         grade: parsedSelection.grade,
         stream: parsedSelection.stream,
         subject: selectedSubject,
+        secondarySubjects: [],
       });
     }
 
-    showToast({ message: 'تم حفظ بيانات المعلم وكافة الصفوف المسندة بنجاح', type: 'success' });
+    showToast({ message: 'تم حفظ اختصاص الأستاذ وكافة الصفوف المسندة وتخصيص المنصة بالكامل ✓', type: 'success' });
   };
 
   const whatsappUrl = `https://wa.me/964${SUPPORT_PHONE_NUMBER.replace(/^0/, '')}?text=${encodeURIComponent(
@@ -418,7 +438,23 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
                     onClick={() => {
                       setSelectedGradeKey(`${cls.stage}_${cls.grade}_${cls.stream}`);
                       setSelectedSubject(cls.subject);
-                      showToast({ message: `تم تفعيل ${cls.label} كصف أساسي`, type: 'info' });
+                      authService.saveTeacherProfile({
+                        stage: cls.stage,
+                        grade: cls.grade,
+                        stream: cls.stream,
+                        subject: cls.subject,
+                        division: cls.division || 'أ',
+                        activeClassId: cls.id,
+                      });
+                      onTeacherChange?.({
+                        ...teacher,
+                        stage: cls.stage,
+                        grade: cls.grade,
+                        stream: cls.stream,
+                        subject: cls.subject,
+                        secondarySubjects: [],
+                      });
+                      showToast({ message: `تم تفعيل ${cls.label} كصف نشط في المنصة`, type: 'info' });
                     }}
                     className="min-h-[36px] px-2.5 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold transition cursor-pointer"
                     title="التعيين كصف أساسي نشط"
@@ -726,40 +762,6 @@ export const SettingsStudio: React.FC<SettingsStudioProps> = ({
           >
             <span>🔄</span>
             <span>مسح الذاكرة المؤقتة والتحديث الآن</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 5. Master Platform Admin Portal Shortcut */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-950 text-white rounded-2xl p-6 shadow-md border border-slate-800 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-600/30 border border-teal-500/40 text-teal-300 text-xl flex items-center justify-center">
-              👑
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-white flex items-center gap-2">
-                <span>بوابة مالك المنصة (لوحة تحكم الأدمن)</span>
-                <span className="text-[10px] bg-teal-900/80 text-teal-300 border border-teal-700/60 px-2 py-0.5 rounded-full font-mono">
-                  SaaS Admin
-                </span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                إدارة المشتركين، توليد التراخيص المشفرة، والتحكم بمفتاح الذكاء الاصطناعي المركزي
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              window.location.hash = '#admin';
-              window.location.reload();
-            }}
-            className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md transition flex items-center gap-2 cursor-pointer active:scale-95"
-          >
-            <span>🔐</span>
-            <span>الدخول إلى لوحة تحكم الأدمن</span>
           </button>
         </div>
       </div>

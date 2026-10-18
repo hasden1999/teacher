@@ -12,4 +12,21 @@ export { MINISTERIAL_FIVE_STEPS };
 export declare const LESSON_TEMPLATES: DailyLessonPlan[];
 export declare function getAllLessonTemplates(): DailyLessonPlan[];
 export declare function getLessonTemplateById(id: string): DailyLessonPlan | undefined;
+/**
+ * Generates a structured 5-step Iraqi MoE daily lesson plan grounded in the teacher's selected
+ * subject, grade, chapter, and topic.
+ */
+export declare function generateSmartDailyPlan(params: {
+    subjectId: string;
+    subjectNameAr: string;
+    grade: number;
+    stage: 'primary' | 'intermediate' | 'preparatory';
+    division?: string;
+    date?: string;
+    chapterTitle: string;
+    topic: string;
+    learningOutcomes?: string[];
+    schoolName?: string;
+    teacherName?: string;
+}): DailyLessonPlan;
 //# sourceMappingURL=templates.d.ts.map

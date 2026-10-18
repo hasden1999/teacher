@@ -386,14 +386,73 @@ export function getSubjectsByStageAndGrade(stage, grade, stream) {
         return true;
     });
 }
+/**
+ * Maps any subject ID or Arabic/English subject name to a canonical family key.
+ * E.g. 'mathematics' | 'math_scientific' | 'الرياضيات' -> 'math'
+ *      'islamic_education' | 'islamic_primary' | 'التربية الإسلامية' -> 'islamic'
+ *      'social_studies' | 'social_intermediate' | 'الاجتماعيات' -> 'social'
+ */
+export function normalizeSubjectFamily(rawSubject) {
+    if (!rawSubject || typeof rawSubject !== 'string')
+        return 'science';
+    const clean = rawSubject.toLowerCase().trim();
+    if (!clean)
+        return 'science';
+    if (clean.includes('math') || clean.includes('رياضيات'))
+        return 'math';
+    if (clean.includes('islamic') || clean.includes('إسلامي') || clean.includes('اسلامي') || clean.includes('قرآن'))
+        return 'islamic';
+    if (clean.includes('arabic') || clean.includes('عربي'))
+        return 'arabic';
+    if (clean.includes('english') || clean.includes('إنكليزي') || clean.includes('انكليزي') || clean.includes('إنجليزي') || clean.includes('انجليزي'))
+        return 'english';
+    if (clean.includes('biolog') || clean.includes('أحياء') || clean.includes('احياء'))
+        return 'biology';
+    if (clean.includes('chemist') || clean.includes('كيمياء'))
+        return 'chemistry';
+    if (clean.includes('physic') || clean.includes('فيزياء'))
+        return 'physics';
+    if (clean.includes('social') || clean.includes('اجتماعيات'))
+        return 'social';
+    if (clean.includes('history') || clean.includes('تاريخ'))
+        return 'history';
+    if (clean.includes('geograph') || clean.includes('جغرافي'))
+        return 'geography';
+    if (clean.includes('econom') || clean.includes('اقتصاد'))
+        return 'economics';
+    if (clean.includes('philosoph') || clean.includes('فلسف'))
+        return 'philosophy';
+    if (clean.includes('comput') || clean.includes('حاسوب'))
+        return 'computer';
+    if (clean.includes('art') || clean.includes('فني') || clean.includes('رياضي'))
+        return 'art_pe';
+    if (clean.includes('science') || clean.includes('علوم'))
+        return 'science';
+    return clean;
+}
+export function doesSubjectMatch(subjectA, subjectB) {
+    if (!subjectA || !subjectB)
+        return false;
+    const normA = normalizeSubjectFamily(subjectA);
+    const normB = normalizeSubjectFamily(subjectB);
+    if (normA === normB)
+        return true;
+    const cleanA = subjectA.toLowerCase().trim();
+    const cleanB = subjectB.toLowerCase().trim();
+    return cleanA === cleanB || cleanA.includes(cleanB) || cleanB.includes(cleanA);
+}
 export function getSubjectById(id, stage, stream) {
+    if (!id || typeof id !== 'string')
+        return IRAQI_SUBJECTS[0];
     // First attempt exact id match
-    let found = IRAQI_SUBJECTS.find((sub) => sub.id === id);
+    const found = IRAQI_SUBJECTS.find((sub) => sub.id === id);
     if (found)
         return found;
-    // Next attempt prefix or fuzzy match by subject base name (e.g. 'chemistry', 'physics', 'math')
+    const family = normalizeSubjectFamily(id);
     const cleanId = id.toLowerCase().trim();
-    const candidates = IRAQI_SUBJECTS.filter((sub) => sub.id.startsWith(cleanId) ||
+    const candidates = IRAQI_SUBJECTS.filter((sub) => normalizeSubjectFamily(sub.id) === family ||
+        normalizeSubjectFamily(sub.nameAr) === family ||
+        sub.id.startsWith(cleanId) ||
         sub.id.includes(cleanId) ||
         sub.nameEn.toLowerCase().includes(cleanId) ||
         sub.nameAr.includes(cleanId));
@@ -407,20 +466,31 @@ export function getSubjectById(id, stage, stream) {
     return candidates[0];
 }
 export function filterSubjectsForTeacher(teacher) {
-    const primaryId = teacher.subject.toLowerCase().trim();
-    const allowedSubjectKeys = [primaryId, ...(teacher.secondarySubjects || []).map((s) => s.toLowerCase().trim())];
-    return IRAQI_SUBJECTS.filter((sub) => {
-        if (sub.stage !== teacher.stage)
+    if (!teacher || !teacher.subject)
+        return [];
+    const primaryFamily = normalizeSubjectFamily(teacher.subject);
+    const allowedFamilies = [
+        primaryFamily,
+        ...(teacher.secondarySubjects || []).map((s) => normalizeSubjectFamily(s)),
+    ];
+    const matchedWithStageAndGrade = IRAQI_SUBJECTS.filter((sub) => {
+        if (teacher.stage && sub.stage !== teacher.stage)
             return false;
-        if (!sub.grades.includes(teacher.grade))
+        if (teacher.grade && !sub.grades.includes(teacher.grade))
             return false;
         if (teacher.stream && sub.stream && sub.stream !== 'general' && sub.stream !== teacher.stream) {
             return false;
         }
-        const matchesKey = allowedSubjectKeys.some((key) => sub.id.includes(key) ||
-            sub.nameEn.toLowerCase().includes(key) ||
-            sub.nameAr.includes(key));
-        return matchesKey;
+        const subFamily = normalizeSubjectFamily(sub.id);
+        return allowedFamilies.includes(subFamily) || doesSubjectMatch(sub.id, teacher.subject);
+    });
+    if (matchedWithStageAndGrade.length > 0) {
+        return matchedWithStageAndGrade;
+    }
+    // Fallback: match by subject family regardless of grade/stage if teacher selected a cross-stage subject (e.g. Biology in primary)
+    return IRAQI_SUBJECTS.filter((sub) => {
+        const subFamily = normalizeSubjectFamily(sub.id);
+        return allowedFamilies.includes(subFamily);
     });
 }
 //# sourceMappingURL=subjects.js.map

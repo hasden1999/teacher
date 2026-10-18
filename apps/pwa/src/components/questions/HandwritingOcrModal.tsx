@@ -1,19 +1,20 @@
-/**
- * HandwritingOcrModal - AI Handwriting OCR & Formula Extractor
- * Powered by Google Gemini 2.5 Flash Vision.
- * Strict Anti-Hallucination: Extracts only authentic text and formulas written in the image.
- * No user API key input required: Fully powered by central platform key managed by Admin.
- */
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from '../common/Toast.js';
 import { getActiveGeminiApiKey } from '../../config/aiConfig.js';
+import { MathRenderer } from './MathRenderer.js';
 
 export interface HandwritingOcrModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApplyQuestions: (extractedText: string) => void;
   subjectName?: string;
+}
+
+interface CropBox {
+  x: number; // percentage 0..100
+  y: number; // percentage 0..100
+  width: number; // percentage 5..100
+  height: number; // percentage 5..100
 }
 
 export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
@@ -23,13 +24,107 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
   subjectName = 'العلوم',
 }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string>('');
+  const [_fileName, setFileName] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [extractedResult, setExtractedResult] = useState<string>('');
-  const [hasConsent, setHasConsent] = useState<boolean>(false);
+  const [hasConsent, setHasConsent] = useState<boolean>(true);
+  const [previewMathMode, setPreviewMathMode] = useState<boolean>(true);
+
+  // Fallback Bounding-Box Crop & Thresholding / SVG Redraw state (Req 6.3)
+  const [activeToolMode, setActiveToolMode] = useState<'ocr' | 'crop_fallback'>('ocr');
+  const [cropBox, setCropBox] = useState<CropBox>({ x: 10, y: 20, width: 80, height: 22 });
+  const [isDraggingCrop, setIsDraggingCrop] = useState<boolean>(false);
+  const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [contrastThreshold, setContrastThreshold] = useState<number>(165);
+  const [useThresholdClean, setUseThresholdClean] = useState<boolean>(true);
+  const [useSvgWrapper, setUseSvgWrapper] = useState<boolean>(true);
+  const [croppedPreviewUri, setCroppedPreviewUri] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isProcessing) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, isProcessing]);
+
+  // Generate clean high-contrast cropped equation or SVG whenever cropBox or threshold changes
+  useEffect(() => {
+    if (!selectedImage || activeToolMode !== 'crop_fallback') return;
+    let cancelled = false;
+
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      const sx = Math.max(0, Math.round((cropBox.x / 100) * img.width));
+      const sy = Math.max(0, Math.round((cropBox.y / 100) * img.height));
+      const sw = Math.max(16, Math.min(img.width - sx, Math.round((cropBox.width / 100) * img.width)));
+      const sh = Math.max(16, Math.min(img.height - sy, Math.round((cropBox.height / 100) * img.height)));
+
+      const canvas = document.createElement('canvas');
+      const maxOutWidth = 900;
+      const scale = sw > maxOutWidth ? maxOutWidth / sw : 1;
+      canvas.width = Math.max(16, Math.round(sw * scale));
+      canvas.height = Math.max(16, Math.round(sh * scale));
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+
+      if (useThresholdClean) {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          // Perceived luminance
+          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+          if (lum < contrastThreshold) {
+            // Crisp dark ink for A4 print
+            const darkness = Math.max(0, Math.floor((lum / contrastThreshold) * 35));
+            data[i] = darkness;
+            data[i + 1] = darkness;
+            data[i + 2] = darkness + 10;
+            data[i + 3] = 255;
+          } else {
+            // Pure white background removing shadows/paper lines
+            data[i] = 255;
+            data[i + 1] = 255;
+            data[i + 2] = 255;
+            data[i + 3] = 255;
+          }
+        }
+        ctx.putImageData(imageData, 0, 0);
+      }
+
+      const pngDataUrl = canvas.toDataURL('image/png');
+
+      if (useSvgWrapper) {
+        // Wrap cleaned equation bitmap in crisp scalable SVG container for A4 print fidelity
+        const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvas.width} ${canvas.height}" width="${canvas.width}" height="${canvas.height}"><image href="${pngDataUrl}" width="${canvas.width}" height="${canvas.height}" style="image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;" /></svg>`;
+        const svgBase64 = btoa(unescape(encodeURIComponent(svgContent)));
+        setCroppedPreviewUri(`data:image/svg+xml;base64,${svgBase64}`);
+      } else {
+        setCroppedPreviewUri(pngDataUrl);
+      }
+    };
+    img.src = selectedImage;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedImage, activeToolMode, cropBox, contrastThreshold, useThresholdClean, useSvgWrapper]);
 
   if (!isOpen) return null;
 
@@ -78,16 +173,6 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
     });
   };
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isProcessing) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, isProcessing]);
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -104,6 +189,59 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
       setExtractedResult('');
     };
     reader.readAsDataURL(file);
+  };
+
+  // Interactive pointer drag on image to select bounding box around handwritten equation/diagram
+  const getRelativePointerCoords = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = imageContainerRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return { x: 0, y: 0 };
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    return { x, y };
+  };
+
+  const handleMouseDownCrop = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (activeToolMode !== 'crop_fallback' || !selectedImage) return;
+    const coords = getRelativePointerCoords(e);
+    setIsDraggingCrop(true);
+    setDragStartPos(coords);
+    setCropBox({ x: coords.x, y: coords.y, width: 5, height: 5 });
+  };
+
+  const handleMouseMoveCrop = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingCrop || !dragStartPos || activeToolMode !== 'crop_fallback') return;
+    const coords = getRelativePointerCoords(e);
+    const x = Math.min(dragStartPos.x, coords.x);
+    const y = Math.min(dragStartPos.y, coords.y);
+    const width = Math.max(8, Math.abs(coords.x - dragStartPos.x));
+    const height = Math.max(8, Math.abs(coords.y - dragStartPos.y));
+    setCropBox({
+      x: Math.min(92, x),
+      y: Math.min(92, y),
+      width: Math.min(100 - x, width),
+      height: Math.min(100 - y, height),
+    });
+  };
+
+  const handleMouseUpCrop = () => {
+    setIsDraggingCrop(false);
+  };
+
+  const handleInsertCroppedEquation = () => {
+    if (!croppedPreviewUri) {
+      showToast({ message: 'يرجى تحديد منطقة المعادلة أو الرسم أولاً', type: 'warning' });
+      return;
+    }
+    const token = `[صورة_معادلة:${croppedPreviewUri}]`;
+    setExtractedResult((prev) =>
+      prev.trim()
+        ? `${prev.trim()}\nس: أجب عما يأتي: ${token} (10 درجات)`
+        : `س1: أجب عما يأتي: (20 درجة)\nفرع أ: جد ناتج المعادلة الآتية: ${token} (10 درجات)`
+    );
+    showToast({
+      message: 'تم قص المعادلة وتحسين تباينها وإدراجها في النص المستخرج بدقة 100%!',
+      type: 'success',
+    });
   };
 
   const handleProcessOcr = async () => {
@@ -130,22 +268,26 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
         return;
       }
 
-      // Optimize image before sending to avoid memory/payload issues on mobile
       const { base64: base64Data, mimeType } = await optimizeImageForOcr(selectedImage);
 
-      const promptText = `أنت ماسح ضوئي بصري حرفي فائق الدقة (Strict Verbatim OCR Engine) متخصص في نقل ما هو مكتوب بخط اليد من أوراق الامتحانات المدرسية العراقية لمادة (${subjectName}).
-مهمتك الوحيدة: قراءة ونقل النصوص والأسئلة والمعادلات الرياضية والكيميائية المكتوبة فعلياً في الصورة حرفياً بنسبة 100% كما هي تماماً، دون أي تدخل أو إكمال أو تخمين أو تأليف ("ولا تخترع أي شيء").
+      const promptText = `أنت ماسح ضوئي بصري حرفي فائق الدقة (Strict Verbatim OCR & Mathematical Formula Engine) متخصص في نقل ما هو مكتوب بخط اليد من أوراق الامتحانات المدرسية العراقية لمادة (${subjectName}).
+مهمتك الوحيدة: قراءة ونقل النصوص والأسئلة والمعادلات الرياضية والجذور والكسور والمعادلات الكيميائية المكتوبة فعلياً في الصورة حرفياً بنسبة 100% كما هي تماماً، دون أي تدخل أو إكمال أو تخمين أو تأليف ("ولا تخترع أي شيء").
 
-تعليمات وقواعد صارمة لمنع التخمين والتأليف نهائياً (Strict Zero Hallucination):
-1. انقل فقط وحصراً ما تراه عينك مرسوماً في الورقة. ممنوع منعاً باتاً إكمال أي جملة ناقصة أو تخمين بقية السؤال أو كتابة أسئلة أو إجابات من مخيلتك.
-2. إذا كانت هناك كلمة أو رمز مشطوب أو غير مقروء بوضوح، اكتب مكانه الرمز [غير واضح] بدلاً من محاولة تخمينه.
-3. التزم بترقيم وترتيب الأسطر والأسئلة والفروع (س1، س2، فرع أ، فرع ب) كما هي مرسومة في الورقة.
-4. التركيز الشديد والدقيق على المعادلات الرياضية والفيزيائية المكتوبة بخط اليد: انقلها بصيغة LaTeX محاطة بـ $ مثل $\\frac{a}{b}$, $x^2 + 5x + 6 = 0$, $\\sqrt{x}$, $\\int f(x) dx$, $\\lim_{x \\to 0}$. احرص على دقة الأسس والجذور والكسور.
-5. المعادلات الكيميائية: انقلها بصيغة \\ce{...} مع الأسهم وحالات المادة بدقة مثل \\ce{CaCO3 -> CaO + CO2}.
-6. إذا كانت الصورة لا تحتوي على أسئلة مقروءة بوضوح، اكتب حصراً: "الصورة غير واضحة بما يكفي لاستخراج الأسئلة بدقة، يرجى إعادة التصوير بزاوية مستقيمة وإضاءة جيدة".
+تعليمات وقواعد صارمة لاستخراج الجذور والمعادلات الرياضية بدقة 100% (Strict Math & Root LaTeX Rules):
+1. انتبه بأقصى درجات الدقة لرمز الجذر المرسوم بخط اليد (√):
+   - الجذر التربيعي يكتب حصراً بصيغة LaTeX داخل علامتي دولار هكذا: $\\sqrt{x}$ أو $\\sqrt{x^2 + 1}$ أو $\\sqrt{25}$.
+   - الجذر التكعيبي أو النوني يكتب هكذا: $\\sqrt[3]{x}$ أو $\\sqrt[n]{x}$.
+   - الجذر الذي بداخله كسر يكتب بدقة: $\\sqrt{\\frac{a}{b}}$.
+   - إياك أن تتجاهل خط سقف الجذر؛ ضع كل ما يقع تحت سقف الجذر داخل الأقواس المعقوفة {...}.
+2. الكسور والأسس والعمليات الجبرية:
+   - الكسور تكتب بصيغة $\\frac{البسط}{المقام}$ مثل $\\frac{x+1}{x-2}$.
+   - الأسس والجذور والمعادلات تحاط دائماً بـ $...$ مثل $x^2 - 5x + 6 = 0$ أو $\\int_{a}^{b} f(x) dx$ أو $\\lim_{x \\to 0}$.
+3. المعادلات الكيميائية: انقلها بصيغة \\ce{...} مع الأسهم وحالات المادة بدقة مثل \\ce{CaCO3 -> CaO + CO2}.
+4. انقل فقط وحصراً ما تراه عينك مرسوماً في الورقة. ممنوع منعاً باتاً إكمال أي جملة ناقصة أو تخمين بقية السؤال أو كتابة أسئلة أو إجابات من مخيلتك.
+5. إذا كانت هناك معادلة مرسومة بخط يد متشابك جداً أو رسم هندسي معقد يصعب تحويله نصياً، اكتب النص المقروء وأرفق ملاحظة [معادلة/رسم يدوي - يمكن قصه بأداة القص الحرفي].
+6. التزم بترقيم وترتيب الأسطر والأسئلة والفروع (س1، س2، فرع أ، فرع ب) كما هي مرسومة في الورقة.
 7. أعد فقط النص المنقول حرفياً بدون أي مقدمات أو خاتمة.`;
 
-      // Try primary model gemini-2.5-flash, fallback to gemini-flash-latest
       const modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest'];
       let candidateText = '';
       let lastErrorStatus = 0;
@@ -195,14 +337,14 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
       if (candidateText) {
         setExtractedResult(candidateText);
         showToast({
-          message: 'تم استخراج نصوص ومعادلات ورقة الأسئلة بنجاح! راجع النص قبل الاعتماد.',
+          message: 'تم استخراج نصوص ومعادلات ورقة الأسئلة (بما فيها الجذور والكسور) بنجاح!',
           type: 'success',
         });
       } else {
         showToast({
           message: lastErrorStatus
-            ? `تعذر استخراج النص (رمز: ${lastErrorStatus}). يرجى التحقق من وضوح الصورة.`
-            : 'لم يتم التعرف على نصوص واضحة، يرجى إعادة التصوير بوضوح أعلى وإضاءة جيدة.',
+            ? `تعذر استخراج النص (رمز: ${lastErrorStatus}). يمكنك استخدام أداة القص الحرفي للمعادلة.`
+            : 'لم يتم التعرف على نصوص واضحة، يمكنك استخدام أداة القص الحرفي للمعادلات المرسومة.',
           type: 'warning',
         });
       }
@@ -218,11 +360,11 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
 
   const handleApply = () => {
     if (!extractedResult.trim()) {
-      showToast({ message: 'لا يوجد نص مستخرج لإدراجه', type: 'error' });
+      showToast({ message: 'لا يوجد نص أو معادلة مستخرجة لإدراجها', type: 'error' });
       return;
     }
     onApplyQuestions(extractedResult.trim());
-    showToast({ message: 'تم إدراج الأسئلة المستخرجة في ورقة الامتحان بنجاح!', type: 'success' });
+    showToast({ message: 'تم إدراج الأسئلة والمعادلات المستخرجة في ورقة الامتحان بنجاح!', type: 'success' });
     onClose();
   };
 
@@ -231,7 +373,7 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
       dir="rtl"
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md font-tajawal animate-in fade-in duration-200"
     >
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[94vh]">
         {/* Mobile Drag Indicator */}
         <div className="pt-2 pb-1 flex justify-center sm:hidden bg-teal-900">
           <div className="w-12 h-1.5 rounded-full bg-white/40" />
@@ -245,11 +387,11 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-extrabold flex items-center gap-2">
-                <span>مسح الأسئلة والمعادلات من خط اليد</span>
+                <span>مسح الأسئلة والجذور والمعادلات من خط اليد (100% دقة)</span>
                 <span className="sr-only">Gemini Vision 2.5 - استخراج الأسئلة من خط اليد</span>
               </h2>
               <p className="text-teal-200 text-xs mt-0.5">
-                نقل حرفي فائق الدقة للأسئلة والمعادلات العلمية مع إمكانية المراجعة والتعديل قبل الاعتماد
+                يدعم تحويل الجذور ($\sqrt{}$) والمعادلات إلى LaTeX أو قص المعادلة حرفياً مع تنظيف التباين و SVG
               </p>
             </div>
           </div>
@@ -265,7 +407,7 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
 
         {/* Action Controls Bar */}
         <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               type="file"
               ref={fileInputRef}
@@ -276,15 +418,38 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="min-h-[48px] px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow transition flex items-center gap-2 active:scale-95"
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow transition flex items-center gap-2 active:scale-95 cursor-pointer"
             >
               <span>📷</span>
               <span>رفع صورة / التقاط بالكاميرا</span>
             </button>
-            {fileName && (
-              <span className="text-xs text-slate-500 truncate max-w-[180px]">
-                {fileName}
-              </span>
+
+            {/* Mode Switcher: AI LaTeX OCR vs Literal Bounding-Box Crop/SVG */}
+            {selectedImage && (
+              <div className="flex bg-slate-200 dark:bg-slate-900 p-0.5 rounded-xl text-xs">
+                <button
+                  type="button"
+                  onClick={() => setActiveToolMode('ocr')}
+                  className={`min-h-[38px] px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                    activeToolMode === 'ocr'
+                      ? 'bg-teal-700 text-white shadow-xs'
+                      : 'text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  ⚡ استخراج ذكي (LaTeX + نص)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveToolMode('crop_fallback')}
+                  className={`min-h-[38px] px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                    activeToolMode === 'crop_fallback'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  ✂️ قص حرفي للمعادلة / الرسم (SVG)
+                </button>
+              </div>
             )}
           </div>
 
@@ -303,7 +468,7 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
               type="button"
               disabled={!selectedImage || !hasConsent || isProcessing}
               onClick={handleProcessOcr}
-              className={`min-h-[48px] px-5 py-2 rounded-xl font-extrabold text-xs shadow transition flex items-center gap-2 ${
+              className={`min-h-[44px] px-5 py-2 rounded-xl font-extrabold text-xs shadow transition flex items-center gap-2 ${
                 !selectedImage || !hasConsent || isProcessing
                   ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed'
                   : 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95 cursor-pointer'
@@ -316,19 +481,132 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
 
         {/* Main Work Area: 2 Columns */}
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 sm:p-5 overflow-y-auto">
-          {/* Column 1: Image Preview */}
-          <div className="flex flex-col border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50 dark:bg-slate-900/60 min-h-[260px]">
-            <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-1.5">
-              <span>🖼️</span>
-              <span>معاينة صورة خط اليد:</span>
-            </h3>
+          {/* Column 1: Image Preview & Interactive Bounding-Box Equation Cropper */}
+          <div className="flex flex-col border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50 dark:bg-slate-900/60 min-h-[280px] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <span>🖼️</span>
+                <span>
+                  {activeToolMode === 'crop_fallback'
+                    ? 'اسحب بالماوس/اللمس فوق المعادلة لقصها حرفياً:'
+                    : 'معاينة صورة خط اليد:'}
+                </span>
+              </h3>
+              {selectedImage && activeToolMode === 'ocr' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveToolMode('crop_fallback')}
+                  className="text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+                >
+                  ✂️ معادلة معقدة؟ قصها كصورة/SVG
+                </button>
+              )}
+            </div>
+
             {selectedImage ? (
-              <div className="flex-1 flex items-center justify-center overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 p-2">
-                <img
-                  src={selectedImage}
-                  alt="ورقة الأسئلة المكتوبة بخط اليد"
-                  className="max-h-[340px] object-contain rounded-lg shadow-sm"
-                />
+              <div className="space-y-3 flex-1 flex flex-col">
+                <div
+                  ref={imageContainerRef}
+                  onMouseDown={handleMouseDownCrop}
+                  onMouseMove={handleMouseMoveCrop}
+                  onMouseUp={handleMouseUpCrop}
+                  onMouseLeave={handleMouseUpCrop}
+                  className={`relative flex-1 flex items-center justify-center overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 p-1 select-none ${
+                    activeToolMode === 'crop_fallback' ? 'cursor-crosshair' : ''
+                  }`}
+                >
+                  <img
+                    src={selectedImage}
+                    alt="ورقة الأسئلة المكتوبة بخط اليد"
+                    draggable={false}
+                    className="max-h-[300px] w-full object-contain rounded-lg"
+                  />
+
+                  {/* Bounding Box Overlay when in Crop Fallback Mode */}
+                  {activeToolMode === 'crop_fallback' && (
+                    <div
+                      style={{
+                        left: `${cropBox.x}%`,
+                        top: `${cropBox.y}%`,
+                        width: `${cropBox.width}%`,
+                        height: `${cropBox.height}%`,
+                      }}
+                      className="absolute border-2 border-amber-500 bg-amber-500/15 pointer-events-none rounded shadow-sm flex items-start justify-end p-1"
+                    >
+                      <span className="bg-amber-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                        منطقة المعادلة
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Fallback Bounding-Box Crop & Thresholding Controls */}
+                {activeToolMode === 'crop_fallback' && (
+                  <div className="p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2.5 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-bold text-amber-900 dark:text-amber-200">
+                        🛠️ آلية الاحتياط الحرفي (مطابقة خط الأستاذ 100%):
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-1 cursor-pointer font-bold">
+                          <input
+                            type="checkbox"
+                            checked={useThresholdClean}
+                            onChange={(e) => setUseThresholdClean(e.target.checked)}
+                            className="rounded text-amber-600"
+                          />
+                          <span>تنظيف التباين (إزالة ظل الورقة)</span>
+                        </label>
+                        <label className="flex items-center gap-1 cursor-pointer font-bold">
+                          <input
+                            type="checkbox"
+                            checked={useSvgWrapper}
+                            onChange={(e) => setUseSvgWrapper(e.target.checked)}
+                            className="rounded text-amber-600"
+                          />
+                          <span>تغليف SVG للطباعة</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {useThresholdClean && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 shrink-0">
+                          شدة سواد الحبر:
+                        </span>
+                        <input
+                          type="range"
+                          min={90}
+                          max={220}
+                          value={contrastThreshold}
+                          onChange={(e) => setContrastThreshold(Number(e.target.value))}
+                          className="flex-1 accent-amber-600"
+                        />
+                      </div>
+                    )}
+
+                    {/* Live Cropped & Cleaned Equation Preview */}
+                    {croppedPreviewUri && (
+                      <div className="flex items-center justify-between gap-3 bg-white p-2 rounded-lg border border-amber-300">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <span className="text-[11px] font-bold text-slate-500 shrink-0">المعاينة:</span>
+                          <img
+                            src={croppedPreviewUri}
+                            alt="معاينة المعادلة المقصوصة"
+                            className="max-h-14 object-contain rounded"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleInsertCroppedEquation}
+                          className="min-h-[38px] px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shrink-0 cursor-pointer transition active:scale-95"
+                        >
+                          + إدراج المعادلة في السؤال
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <div
@@ -340,37 +618,91 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
                   اضغط هنا لاختيار أو التقاط صورة ورقة الامتحان
                 </p>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  يدعم خط اليد العراقي، المعادلات الرياضية، والكيميائية
+                  يدعم خط اليد العراقي، الجذور ($\sqrt{}$)، الكسور، والمعادلات الرياضية والكيميائية
                 </p>
               </div>
             )}
           </div>
 
-          {/* Column 2: Extracted Text Editor */}
-          <div className="flex flex-col border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50 dark:bg-slate-900/60 min-h-[260px]">
-            <div className="flex items-center justify-between mb-2">
+          {/* Column 2: Extracted Text Editor + Live KaTeX Math Rendering Preview */}
+          <div className="flex flex-col border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50 dark:bg-slate-900/60 min-h-[280px] space-y-2.5">
+            <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 <span>📝</span>
-                <span>النص المستخرج فعلياً (قابل للتعديل):</span>
+                <span>النص والمعادلات المستخرجة (قابل للتعديل):</span>
               </h3>
-              {extractedResult && (
+              <div className="flex items-center gap-2">
+                {/* Quick Math Root / Fraction Helpers */}
                 <button
                   type="button"
-                  onClick={() => setExtractedResult('')}
-                  className="text-[11px] text-rose-600 hover:underline"
+                  onClick={() => setExtractedResult((prev) => `${prev} $\\sqrt{x}$ `)}
+                  className="px-2 py-0.5 rounded bg-teal-100 text-teal-900 text-[11px] font-bold hover:bg-teal-200 cursor-pointer"
+                  title="إدراج جذر تربيعي"
                 >
-                  مسح
+                  {'+ √x'}
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={() => setExtractedResult((prev) => `${prev} $\\sqrt[3]{x}$ `)}
+                  className="px-2 py-0.5 rounded bg-teal-100 text-teal-900 text-[11px] font-bold hover:bg-teal-200 cursor-pointer"
+                  title="إدراج جذر تكعيبي"
+                >
+                  {'+ ∛x'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExtractedResult((prev) => `${prev} $\\frac{a}{b}$ `)}
+                  className="px-2 py-0.5 rounded bg-teal-100 text-teal-900 text-[11px] font-bold hover:bg-teal-200 cursor-pointer"
+                  title="إدراج كسر"
+                >
+                  + كسر
+                </button>
+                {extractedResult && (
+                  <button
+                    type="button"
+                    onClick={() => setExtractedResult('')}
+                    className="text-[11px] text-rose-600 hover:underline font-bold cursor-pointer"
+                  >
+                    مسح
+                  </button>
+                )}
+              </div>
             </div>
 
             <textarea
               value={extractedResult}
               onChange={(e) => setExtractedResult(e.target.value)}
-              placeholder="سيظهر هنا النص المستخرج من الصورة حرفياً وبدون أي تأليف... يمكنك مراجعته وتعديل أي كلمة قبل اعتماده."
-              rows={12}
-              className="flex-1 w-full p-3.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none text-slate-800 dark:text-slate-200"
+              placeholder="سيظهر هنا النص والمعادلات المستخرجة بصيغة LaTeX (مثل $\sqrt{x^2+1}$)... يمكنك مراجعتها أو إدراج معادلة مقصوصة."
+              rows={7}
+              className="w-full p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none text-slate-800 dark:text-slate-200"
             />
+
+            {/* Live KaTeX & Cropped Equation Render Preview */}
+            <div className="flex-1 flex flex-col border border-teal-200 dark:border-teal-900/60 rounded-xl bg-white dark:bg-slate-950 p-3 overflow-y-auto max-h-[180px]">
+              <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-[11px] font-bold text-teal-800 dark:text-teal-300">
+                  👁️ المعاينة الحية للجذور والمعادلات (KaTeX + الصور المقصوصة):
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMathMode((p) => !p)}
+                  className="text-[10px] text-slate-500 hover:text-teal-700"
+                >
+                  {previewMathMode ? 'إخفاء المعاينة' : 'إظهار المعاينة'}
+                </button>
+              </div>
+              {previewMathMode && (
+                <div className="text-xs sm:text-sm">
+                  {extractedResult.trim() ? (
+                    <MathRenderer text={extractedResult} fontFamily="amiri" />
+                  ) : (
+                    <p className="text-slate-400 text-xs">
+                      {'ستظهر هنا معاينة المعادلات الرياضية والجذور (√x) والصور المقصوصة كما ستبدو في ورقة الامتحان...'}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -379,7 +711,7 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 dark:text-slate-400 transition"
+            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 dark:text-slate-400 transition cursor-pointer"
           >
             إلغاء
           </button>

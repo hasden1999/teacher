@@ -5,8 +5,13 @@ import { getActiveGeminiApiKey } from '../../config/aiConfig.js';
 export interface StudentRosterOcrModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApplyStudents: (students: Array<{ fullName: string; gender: 'male' | 'female'; rollNumber?: number }>) => void;
+  onApplyStudents: (
+    students: Array<{ fullName: string; gender: 'male' | 'female'; rollNumber?: number }>,
+    targetDivisionId?: string
+  ) => Promise<void> | void;
   divisionName?: string;
+  divisionsList?: Array<{ id: string; name: string; gradeLevel?: string | number }>;
+  currentDivisionId?: string;
 }
 
 export interface ExtractedStudentCandidate {
@@ -22,26 +27,51 @@ export const StudentRosterOcrModal: React.FC<StudentRosterOcrModalProps> = ({
   onClose,
   onApplyStudents,
   divisionName = 'الشعبة',
+  divisionsList,
+  currentDivisionId,
 }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isApplying, setIsApplying] = useState<boolean>(false);
   const [candidates, setCandidates] = useState<ExtractedStudentCandidate[]>([]);
   const [statusMessage, setStatusMessage] = useState<string>('');
+
+  const [selectedTargetDivId, setSelectedTargetDivId] = useState<string>(() => {
+    if (currentDivisionId) return currentDivisionId;
+    if (divisionsList && divisionsList.length > 0) {
+      const match = divisionsList.find((d) => d.name === divisionName);
+      return match ? match.id : divisionsList[0].id;
+    }
+    return 'div_1';
+  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
 
   useEffect(() => {
+    if (currentDivisionId) {
+      setSelectedTargetDivId(currentDivisionId);
+    } else if (divisionsList && divisionsList.length > 0) {
+      const match = divisionsList.find((d) => d.name === divisionName);
+      if (match) setSelectedTargetDivId(match.id);
+    }
+  }, [currentDivisionId, divisionName, divisionsList]);
+
+  useEffect(() => {
     if (!isOpen) {
       setSelectedImage(null);
       setCandidates([]);
       setIsProcessing(false);
+      setIsApplying(false);
       setStatusMessage('');
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const targetDivisionObj = divisionsList?.find((d) => d.id === selectedTargetDivId);
+  const activeTargetDivisionName = targetDivisionObj?.name || divisionName || 'الشعبة';
 
   const optimizeImage = (dataUrl: string): Promise<{ base64: string; mimeType: string }> => {
     return new Promise((resolve) => {
@@ -181,19 +211,53 @@ export const StudentRosterOcrModal: React.FC<StudentRosterOcrModalProps> = ({
         try {
           const cleaned = candidateJson.replace(/```json/g, '').replace(/```/g, '').trim();
           const parsed = JSON.parse(cleaned);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const items: ExtractedStudentCandidate[] = parsed.map((p: any, idx: number): ExtractedStudentCandidate => ({
-              id: `ocr_std_${Date.now()}_${idx}`,
-              fullName: String(p.fullName || '').trim(),
-              gender: (p.gender === 'female' ? 'female' : 'male') as 'male' | 'female',
-              rollNumber: Number(p.rollNumber) || idx + 1,
-              isSelected: true,
-            })).filter((item: ExtractedStudentCandidate) => item.fullName.length > 0);
+
+          let rawArray: any[] = [];
+          if (Array.isArray(parsed)) {
+            rawArray = parsed;
+          } else if (parsed && typeof parsed === 'object') {
+            const possible =
+              parsed.students ||
+              parsed.roster ||
+              parsed.candidates ||
+              parsed.items ||
+              Object.values(parsed).find((v) => Array.isArray(v));
+            if (Array.isArray(possible)) {
+              rawArray = possible;
+            }
+          }
+
+          if (rawArray.length > 0) {
+            const items: ExtractedStudentCandidate[] = rawArray
+              .map((p: any, idx: number): ExtractedStudentCandidate => {
+                const rawName =
+                  p.fullName ||
+                  p.name ||
+                  p.studentName ||
+                  p.student_name ||
+                  p['اسم الطالب'] ||
+                  p['الاسم'] ||
+                  '';
+                const rawGender = String(p.gender || '').toLowerCase().trim();
+                const isFemale =
+                  rawGender === 'female' ||
+                  rawGender === 'أنثى' ||
+                  rawGender === 'انثى' ||
+                  rawGender === 'f';
+                return {
+                  id: `ocr_std_${Date.now()}_${idx}`,
+                  fullName: String(rawName).trim(),
+                  gender: isFemale ? 'female' : 'male',
+                  rollNumber: Number(p.rollNumber) || idx + 1,
+                  isSelected: true,
+                };
+              })
+              .filter((item: ExtractedStudentCandidate) => item.fullName.length > 0);
 
             if (items.length > 0) {
               setCandidates(items);
               showToast({
-                message: `تم التعرف على ${items.length} طالباً بنجاح! راجع الأسماء قبل الاعتماد.`,
+                message: `تم التعرف على ${items.length} طالباً بنجاح! راجع الأسماء والشعبة قبل الاعتماد.`,
                 type: 'success',
               });
               setIsProcessing(false);
@@ -237,25 +301,36 @@ export const StudentRosterOcrModal: React.FC<StudentRosterOcrModalProps> = ({
     setCandidates(prev => [...prev, newItem]);
   };
 
-  const handleConfirmAndApply = () => {
+  const handleConfirmAndApply = async () => {
     const activeSelected = candidates.filter(c => c.isSelected && c.fullName.trim().length > 0);
     if (activeSelected.length === 0) {
       showToast({ message: 'يرجى تحديد طالب واحد على الأقل للاعتماد', type: 'warning' });
       return;
     }
 
-    onApplyStudents(
-      activeSelected.map(c => ({
-        fullName: c.fullName.trim(),
-        gender: c.gender,
-        rollNumber: c.rollNumber,
-      }))
-    );
-    showToast({
-      message: `تم اعتماد وإضافة ${activeSelected.length} طالباً إلى ${divisionName} بنجاح!`,
-      type: 'success',
-    });
-    onClose();
+    setIsApplying(true);
+    try {
+      await onApplyStudents(
+        activeSelected.map(c => ({
+          fullName: c.fullName.trim(),
+          gender: c.gender,
+          rollNumber: c.rollNumber,
+        })),
+        selectedTargetDivId
+      );
+      showToast({
+        message: `تم اعتماد وإضافة ${activeSelected.length} طالباً إلى ${activeTargetDivisionName} بنجاح!`,
+        type: 'success',
+      });
+      onClose();
+    } catch (err: any) {
+      showToast({
+        message: `فشل حفظ وإضافة الطلاب: ${err.message || 'حدث خطأ أثناء الحفظ'}`,
+        type: 'error',
+      });
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   return (
@@ -275,7 +350,7 @@ export const StudentRosterOcrModal: React.FC<StudentRosterOcrModalProps> = ({
                 إدراج الطلاب عبر مسح خط اليد
               </h2>
               <p className="text-xs text-teal-100">
-                التقط صورة لقائمة الطلاب بخط اليد أو اختر صورة من جهازك لإدراجهم في {divisionName}
+                التقط صورة لقائمة الطلاب بخط اليد أو اختر صورة من جهازك لإدراجهم في {activeTargetDivisionName}
               </p>
             </div>
           </div>
@@ -308,6 +383,38 @@ export const StudentRosterOcrModal: React.FC<StudentRosterOcrModalProps> = ({
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+          {/* Target Division Selector */}
+          <div className="p-3 bg-teal-50/60 dark:bg-teal-950/30 rounded-2xl border border-teal-200/70 dark:border-teal-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🏫</span>
+              <div>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                  الشعبة المستهدفة للإضافة:
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  سيتم حفظ الطلاب المستخرجين مباشرة في هذه الشعبة
+                </span>
+              </div>
+            </div>
+            {divisionsList && divisionsList.length > 0 ? (
+              <select
+                value={selectedTargetDivId}
+                onChange={(e) => setSelectedTargetDivId(e.target.value)}
+                className="w-full sm:w-auto px-3 py-1.5 rounded-xl border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 text-teal-900 dark:text-teal-100 text-xs sm:text-sm font-bold shadow-xs cursor-pointer focus:ring-2 focus:ring-teal-500"
+              >
+                {divisionsList.map((div) => (
+                  <option key={div.id} value={div.id}>
+                    {div.name} {div.gradeLevel ? `(${div.gradeLevel})` : ''}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="px-3 py-1 bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 rounded-lg text-xs font-bold">
+                {activeTargetDivisionName}
+              </span>
+            )}
+          </div>
+
           {/* Capture / Select Buttons */}
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -451,10 +558,20 @@ export const StudentRosterOcrModal: React.FC<StudentRosterOcrModalProps> = ({
           {candidates.length > 0 && (
             <button
               type="button"
+              disabled={isApplying}
               onClick={handleConfirmAndApply}
-              className="min-h-[44px] px-6 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-bold shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+              className="min-h-[44px] px-6 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-bold shadow-sm transition flex items-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <span>✓ اعتماد الطلاب وإضافتهم للشعبة ({candidates.filter(c => c.isSelected && c.fullName.trim()).length})</span>
+              {isApplying ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>جاري إضافة وحفظ الطلاب في {activeTargetDivisionName}...</span>
+                </>
+              ) : (
+                <>
+                  <span>✓ اعتماد الطلاب وإضافتهم إلى {activeTargetDivisionName} ({candidates.filter(c => c.isSelected && c.fullName.trim()).length})</span>
+                </>
+              )}
             </button>
           )}
         </div>

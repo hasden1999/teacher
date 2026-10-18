@@ -12,11 +12,16 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useToast } from '../common/Toast.js';
 import { excelService } from '../../services/excelService.js';
 import { gradebookDbService } from '../../services/gradebookDbService.js';
-import { authService } from '../../services/authService.js';
+import { authService, type AssignedClass } from '../../services/authService.js';
 import type { StudentRowItem } from '../gradebook/types.js';
+import { SAMPLE_SEED_STUDENTS } from '../gradebook/GradebookStudio.js';
 import { StudentRosterOcrModal } from './StudentRosterOcrModal.js';
 
-export const ClassesStudio: React.FC = () => {
+export interface ClassesStudioProps {
+  activeClass?: AssignedClass;
+}
+
+export const ClassesStudio: React.FC<ClassesStudioProps> = ({ activeClass }) => {
   const [students, setStudents] = useState<StudentRowItem[]>([]);
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentPhone, setNewStudentPhone] = useState('');
@@ -37,6 +42,25 @@ export const ClassesStudio: React.FC = () => {
     return 'شعبة أ';
   });
 
+  useEffect(() => {
+    if (!activeClass) return;
+    const rawDiv = (activeClass.division || 'أ').replace(/^شعبة\s*/, '').trim() || 'أ';
+    const isPrimaryDefault = activeClass.id.startsWith('primary_') && rawDiv === 'أ';
+    const targetDivName = isPrimaryDefault ? 'شعبة أ' : activeClass.label || `شعبة ${rawDiv}`;
+    const targetDivId = isPrimaryDefault ? 'div_1' : `div_${activeClass.id}`;
+
+    setDivisionsList((prev) => {
+      if (prev.some((d) => d.id === targetDivId || d.name === targetDivName)) {
+        return prev;
+      }
+      return [...prev, { id: targetDivId, name: targetDivName }];
+    });
+    setSelectedDivision(targetDivName);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('techeeer_active_division', targetDivName);
+    }
+  }, [activeClass]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { showToast } = useToast();
   const teacherProfile = authService.getTeacherProfile();
@@ -56,12 +80,50 @@ export const ClassesStudio: React.FC = () => {
         const classes = await gradebookDbService.getClasses();
         const currentClassId = classes[0]?.id || 'cls_prep_5';
         const dbDivs = await gradebookDbService.getDivisions(currentClassId);
-        
-        if (active && dbDivs && dbDivs.length > 0) {
-          setDivisionsList(dbDivs.map((d) => ({ id: d.id, name: d.name })));
+
+        const mergedDivs: Array<{ id: string; name: string }> =
+          dbDivs && dbDivs.length > 0
+            ? dbDivs.map((d) => ({ id: d.id, name: d.name }))
+            : [
+                { id: 'div_1', name: 'شعبة أ' },
+                { id: 'div_2', name: 'شعبة ب' },
+                { id: 'div_3', name: 'شعبة ج' },
+              ];
+
+        const teacherClasses = authService.getTeacherAllClasses();
+        for (const tc of teacherClasses) {
+          const rawDiv = (tc.division || 'أ').replace(/^شعبة\s*/, '').trim() || 'أ';
+          const isPrimaryDefault = tc.id.startsWith('primary_') && rawDiv === 'أ';
+          const tId = isPrimaryDefault ? 'div_1' : `div_${tc.id}`;
+          const tName = isPrimaryDefault ? 'شعبة أ' : tc.label || `شعبة ${rawDiv}`;
+          if (!mergedDivs.some((d) => d.id === tId || d.name === tName)) {
+            mergedDivs.push({ id: tId, name: tName });
+          }
         }
 
-        const dbStudents = await gradebookDbService.getStudentsByDivision(divisionId, true);
+        if (active) {
+          setDivisionsList(mergedDivs);
+        }
+
+        let dbStudents = await gradebookDbService.getStudentsByDivision(divisionId, true);
+        if (
+          dbStudents.length === 0 &&
+          divisionId === 'div_1' &&
+          (typeof localStorage === 'undefined' || localStorage.getItem('techeeer_sample_seed_cleared') !== 'true')
+        ) {
+          dbStudents = SAMPLE_SEED_STUDENTS.map((s) => ({
+            id: s.id,
+            division_id: 'div_1',
+            full_name: s.fullName,
+            gender: s.gender || 'male',
+            roll_number: s.rollNumber,
+            guardian_phone: s.guardianPhone || null,
+            notes: null,
+            is_active: 1,
+            created_at: Date.now(),
+          }));
+        }
+
         if (active) {
           setStudents(
             dbStudents.map((s) => ({
@@ -195,36 +257,52 @@ export const ClassesStudio: React.FC = () => {
   };
 
   const handleApplyOcrStudents = async (
-    ocrStudents: Array<{ fullName: string; gender: 'male' | 'female'; rollNumber?: number }>
+    ocrStudents: Array<{ fullName: string; gender: 'male' | 'female'; rollNumber?: number }>,
+    targetDivId?: string
   ) => {
+    const finalDivId = targetDivId || divisionId;
+    const targetDivisionObj = divisionsList.find((d) => d.id === finalDivId);
+
+    // Fetch existing students for the target division to calculate exact sequential roll number
+    let existingInTarget: any[] = [];
     try {
-      const startRoll = students.length;
-      const newItems: StudentRowItem[] = ocrStudents.map((s, idx) => ({
-        id: `std_ocr_${Date.now()}_${idx}`,
-        fullName: s.fullName,
-        rollNumber: s.rollNumber || startRoll + idx + 1,
-        gender: s.gender,
-      }));
+      existingInTarget = await gradebookDbService.getStudentsByDivision(finalDivId, false);
+    } catch {
+      existingInTarget = [];
+    }
 
-      const entities = newItems.map((s) => ({
-        id: s.id,
-        division_id: divisionId,
-        full_name: s.fullName,
-        gender: s.gender || 'male',
-        roll_number: s.rollNumber,
-        is_active: 1,
-        guardian_phone: null,
-        notes: null,
-      }));
+    const startRoll = existingInTarget.length;
+    const newItems: StudentRowItem[] = ocrStudents.map((s, idx) => ({
+      id: `std_ocr_${Date.now()}_${idx}`,
+      fullName: s.fullName,
+      rollNumber: s.rollNumber || startRoll + idx + 1,
+      gender: s.gender,
+    }));
 
-      await gradebookDbService.bulkCreateStudents(entities);
+    const entities = newItems.map((s) => ({
+      id: s.id,
+      division_id: finalDivId,
+      full_name: s.fullName,
+      gender: s.gender || 'male',
+      roll_number: s.rollNumber,
+      is_active: 1,
+      guardian_phone: null,
+      notes: null,
+    }));
+
+    await gradebookDbService.bulkCreateStudents(entities);
+
+    // If target division is currently displayed, update local students state
+    if (finalDivId === divisionId) {
       setStudents((prev) => [...prev, ...newItems]);
-      showToast({
-        message: `تمت إضافة ${newItems.length} طالباً بنجاح وحفظهم في قاعدة البيانات`,
-        type: 'success',
-      });
-    } catch (err: any) {
-      showToast({ message: `فشل حفظ الطلاب: ${err.message}`, type: 'error' });
+    } else {
+      // Switch view to target division so the user immediately sees the added students
+      if (targetDivisionObj) {
+        setSelectedDivision(targetDivisionObj.name);
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('techeeer_active_division', targetDivisionObj.name);
+        }
+      }
     }
   };
 
@@ -523,6 +601,8 @@ export const ClassesStudio: React.FC = () => {
         onClose={() => setIsOcrModalOpen(false)}
         onApplyStudents={handleApplyOcrStudents}
         divisionName={selectedDivision}
+        divisionsList={divisionsList}
+        currentDivisionId={divisionId}
       />
     </div>
   );

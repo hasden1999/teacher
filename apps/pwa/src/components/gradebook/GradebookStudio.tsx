@@ -3,7 +3,7 @@
  * Connects VirtualGradebookTable, BatchFillModal, StudentCardModal, Excel Service, and WhatsApp Service.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { VirtualGradebookTable } from './VirtualGradebookTable.js';
 import { BatchFillModal } from './BatchFillModal.js';
 import { StudentCardModal } from './StudentCardModal.js';
@@ -27,6 +27,7 @@ import {
 } from '@techeeer/core';
 import { VoiceGradeEntryModal } from './VoiceGradeEntryModal.js';
 import { MobileStudentCardsView } from './MobileStudentCardsView.js';
+import { StudentRosterOcrModal } from '../classes/StudentRosterOcrModal.js';
 
 // Sample Seed for empty initial run (clearly designated as SAMPLE_SEED)
 export const SAMPLE_SEED_STUDENTS: StudentRowItem[] = [
@@ -84,11 +85,26 @@ export const SAMPLE_SEED_GRADES: GradebookMatrix = {
   },
 };
 
-export const GradebookStudio: React.FC = () => {
+import type { AssignedClass } from '../../services/authService.js';
+
+export interface GradebookStudioProps {
+  activeClass?: AssignedClass;
+  subjectName?: string;
+}
+
+export const GradebookStudio: React.FC<GradebookStudioProps> = ({
+  activeClass,
+  subjectName,
+}) => {
   const [students, setStudents] = useState<StudentRowItem[]>([]);
   const [grades, setGrades] = useState<GradebookMatrix>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeMode, setActiveMode] = useState<'detailed' | 'simplified'>('detailed');
+  const [divisionsList, setDivisionsList] = useState<Array<{ id: string; name: string }>>([
+    { id: 'div_1', name: 'شعبة أ' },
+    { id: 'div_2', name: 'شعبة ب' },
+    { id: 'div_3', name: 'شعبة ج' },
+  ]);
   const [activeDivision, setActiveDivision] = useState<string>(() => {
     if (typeof localStorage !== 'undefined') {
       return localStorage.getItem('techeeer_active_division') || 'شعبة أ';
@@ -98,17 +114,37 @@ export const GradebookStudio: React.FC = () => {
   const [activeMobileColumnKey, setActiveMobileColumnKey] = useState<string>('component_oral');
   const [viewType, setViewType] = useState<'cards' | 'table'>('cards');
 
-  const divisionIdMap: Record<string, string> = {
-    'شعبة أ': 'div_1',
-    'شعبة ب': 'div_2',
-    'شعبة ج': 'div_3',
-  };
-  const divisionId = divisionIdMap[activeDivision] || 'div_1';
+  // Sync activeClass selection from Top Bar into Gradebook division
+  useEffect(() => {
+    if (!activeClass) return;
+    const rawDiv = (activeClass.division || 'أ').replace(/^شعبة\s*/, '').trim() || 'أ';
+    const isPrimaryDefault = activeClass.id.startsWith('primary_') && rawDiv === 'أ';
+    const targetDivName = isPrimaryDefault ? 'شعبة أ' : activeClass.label || `شعبة ${rawDiv}`;
+    const targetDivId = isPrimaryDefault ? 'div_1' : `div_${activeClass.id}`;
+
+    setDivisionsList((prev) => {
+      if (prev.some((d) => d.id === targetDivId || d.name === targetDivName)) {
+        return prev;
+      }
+      return [...prev, { id: targetDivId, name: targetDivName }];
+    });
+    setActiveDivision(targetDivName);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('techeeer_active_division', targetDivName);
+    }
+  }, [activeClass]);
+
+  const activeDivisionObj = useMemo(() => {
+    return divisionsList.find((d) => d.name === activeDivision) || divisionsList[0];
+  }, [divisionsList, activeDivision]);
+
+  const divisionId = activeDivisionObj?.id || 'div_1';
 
   // Modals state
   const [batchModalColumn, setBatchModalColumn] = useState<GradeColumnDef | null>(null);
   const [selectedStudentForCard, setSelectedStudentForCard] = useState<StudentRowItem | null>(null);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState<boolean>(false);
+  const [isOcrModalOpen, setIsOcrModalOpen] = useState<boolean>(false);
 
   const { showToast } = useToast();
 
@@ -116,6 +152,32 @@ export const GradebookStudio: React.FC = () => {
     setIsLoading(true);
     try {
       await gradebookDbService.ensureDefaultStructure();
+      const classes = await gradebookDbService.getClasses();
+      const currentClassId = classes[0]?.id || 'cls_prep_5';
+      const dbDivs = await gradebookDbService.getDivisions(currentClassId);
+
+      // Merge SQLite divisions with teacher's assigned classes/divisions
+      const mergedDivs: Array<{ id: string; name: string }> =
+        dbDivs && dbDivs.length > 0
+          ? dbDivs.map((d) => ({ id: d.id, name: d.name }))
+          : [
+              { id: 'div_1', name: 'شعبة أ' },
+              { id: 'div_2', name: 'شعبة ب' },
+              { id: 'div_3', name: 'شعبة ج' },
+            ];
+
+      const teacherClasses = authService.getTeacherAllClasses();
+      for (const tc of teacherClasses) {
+        const rawDiv = (tc.division || 'أ').replace(/^شعبة\s*/, '').trim() || 'أ';
+        const isPrimaryDefault = tc.id.startsWith('primary_') && rawDiv === 'أ';
+        const tId = isPrimaryDefault ? 'div_1' : `div_${tc.id}`;
+        const tName = isPrimaryDefault ? 'شعبة أ' : tc.label || `شعبة ${rawDiv}`;
+        if (!mergedDivs.some((d) => d.id === tId || d.name === tName)) {
+          mergedDivs.push({ id: tId, name: tName });
+        }
+      }
+
+      setDivisionsList(mergedDivs);
       if (divisionId === 'div_1') {
         await gradebookDbService.seedSampleStudentsIfEmpty(
           'div_1',
@@ -133,8 +195,28 @@ export const GradebookStudio: React.FC = () => {
         );
       }
 
-      const dbStudents = await gradebookDbService.getStudentsByDivision(divisionId, true);
-      const dbMatrix = await gradebookDbService.loadMatrix(divisionId);
+      let dbStudents = await gradebookDbService.getStudentsByDivision(divisionId, true);
+      let dbMatrix = await gradebookDbService.loadMatrix(divisionId);
+
+      // Graceful fallback for div_1 if not explicitly cleared and students list is empty
+      if (
+        dbStudents.length === 0 &&
+        divisionId === 'div_1' &&
+        (typeof localStorage === 'undefined' || localStorage.getItem('techeeer_sample_seed_cleared') !== 'true')
+      ) {
+        dbStudents = SAMPLE_SEED_STUDENTS.map((s) => ({
+          id: s.id,
+          division_id: 'div_1',
+          full_name: s.fullName,
+          gender: s.gender || 'male',
+          roll_number: s.rollNumber,
+          guardian_phone: s.guardianPhone || null,
+          notes: null,
+          is_active: 1,
+          created_at: Date.now(),
+        }));
+        dbMatrix = SAMPLE_SEED_GRADES;
+      }
 
       setStudents(
         dbStudents.map((s) => ({
@@ -148,7 +230,14 @@ export const GradebookStudio: React.FC = () => {
       );
       setGrades(dbMatrix);
     } catch (err: any) {
-      console.warn('Failed to load gradebook from SQLite:', err);
+      console.warn('Failed to load gradebook from database:', err);
+      if (
+        divisionId === 'div_1' &&
+        (typeof localStorage === 'undefined' || localStorage.getItem('techeeer_sample_seed_cleared') !== 'true')
+      ) {
+        setStudents(SAMPLE_SEED_STUDENTS);
+        setGrades(SAMPLE_SEED_GRADES);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -160,19 +249,22 @@ export const GradebookStudio: React.FC = () => {
 
   // Synchronize on focus/storage in case students were modified in ClassesStudio
   useEffect(() => {
-    const handleSync = () => {
+    const handleSync = (e?: StorageEvent | FocusEvent) => {
       const storedDiv = localStorage.getItem('techeeer_active_division');
       if (storedDiv && storedDiv !== activeDivision) {
         setActiveDivision(storedDiv);
-      } else {
-        loadRosterData();
+      } else if (e?.type === 'storage') {
+        const sEvent = e as StorageEvent;
+        if (!sEvent.key || sEvent.key.includes('student') || sEvent.key.includes('gradebook')) {
+          loadRosterData();
+        }
       }
     };
-    window.addEventListener('storage', handleSync);
-    window.addEventListener('focus', handleSync);
+    window.addEventListener('storage', handleSync as any);
+    window.addEventListener('focus', handleSync as any);
     return () => {
-      window.removeEventListener('storage', handleSync);
-      window.removeEventListener('focus', handleSync);
+      window.removeEventListener('storage', handleSync as any);
+      window.removeEventListener('focus', handleSync as any);
     };
   }, [activeDivision, loadRosterData]);
 
@@ -189,6 +281,44 @@ export const GradebookStudio: React.FC = () => {
       setStudents([]);
       setGrades({});
       showToast({ message: 'تم مسح البيانات التجريبية بنجاح', type: 'info' });
+    }
+  };
+
+  const handleApplyOcrStudents = async (
+    ocrStudents: Array<{ fullName: string; gender: 'male' | 'female'; rollNumber?: number }>,
+    targetDivId?: string
+  ) => {
+    const finalDivId = targetDivId || divisionId;
+    const targetDivisionObj = divisionsList.find((d) => d.id === finalDivId);
+
+    let existingInTarget: any[] = [];
+    try {
+      existingInTarget = await gradebookDbService.getStudentsByDivision(finalDivId, false);
+    } catch {
+      existingInTarget = [];
+    }
+
+    const startRoll = existingInTarget.length;
+    const entities = ocrStudents.map((s, idx) => ({
+      id: `std_ocr_${Date.now()}_${idx}`,
+      division_id: finalDivId,
+      full_name: s.fullName,
+      gender: s.gender || 'male',
+      roll_number: s.rollNumber || startRoll + idx + 1,
+      is_active: 1,
+      guardian_phone: null,
+      notes: null,
+    }));
+
+    await gradebookDbService.bulkCreateStudents(entities);
+
+    if (finalDivId !== divisionId && targetDivisionObj) {
+      setActiveDivision(targetDivisionObj.name);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('techeeer_active_division', targetDivisionObj.name);
+      }
+    } else {
+      await loadRosterData();
     }
   };
 
@@ -415,7 +545,7 @@ export const GradebookStudio: React.FC = () => {
           <span className="text-2xl">📊</span>
           <div>
             <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
-              سجل الدرجات الوزاري الإلكتروني
+              سجل الدرجات الوزاري الإلكتروني {subjectName ? `— (${subjectName})` : ''}
             </h2>
             <p className="text-xs text-slate-500">
               معادلات السعي والقرار الوزاري المعتمدة وفق ضوابط وزارة التربية
@@ -428,11 +558,13 @@ export const GradebookStudio: React.FC = () => {
           <select
             value={activeDivision}
             onChange={(e) => handleDivisionChange(e.target.value)}
-            className="min-h-[44px] px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
+            className="min-h-[44px] px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold cursor-pointer"
           >
-            <option value="شعبة أ">الخامس العلمي - شعبة أ</option>
-            <option value="شعبة ب">الخامس العلمي - شعبة ب</option>
-            <option value="شعبة ج">الخامس العلمي - شعبة ج</option>
+            {divisionsList.map((div) => (
+              <option key={div.id} value={div.name}>
+                {div.name}
+              </option>
+            ))}
           </select>
 
           {/* Mode toggle */}
@@ -489,6 +621,16 @@ export const GradebookStudio: React.FC = () => {
 
           <button
             type="button"
+            onClick={() => setIsOcrModalOpen(true)}
+            className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow cursor-pointer"
+            title="إدراج الطلاب عبر مسح ورقة خط اليد"
+          >
+            <span>📸</span>
+            <span>مسح خط اليد</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsVoiceModalOpen(true)}
             className="hidden md:flex min-h-[44px] px-3.5 py-1.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition items-center gap-1.5 shadow"
           >
@@ -532,9 +674,17 @@ export const GradebookStudio: React.FC = () => {
             لا يوجد طلاب في {activeDivision}
           </h3>
           <p className="text-xs text-slate-500 max-w-md mb-6 leading-relaxed">
-            لم يتم العثور على أي طلاب مسجلين في هذه الشعبة. يمكنك استيراد قائمة الطلاب من ملف Excel عبر قسم «الفصول والشعب» أو إعادة تعيين العينة التجريبية.
+            لم يتم العثور على أي طلاب مسجلين في هذه الشعبة. يمكنك استخدام مسح خط اليد، أو استيراد قائمة الطلاب من ملف Excel عبر قسم «الفصول والشعب» أو إعادة تعيين العينة التجريبية.
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => setIsOcrModalOpen(true)}
+              className="min-h-[40px] px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow"
+            >
+              <span>📸</span>
+              <span>إدراج الطلاب عبر مسح خط اليد (OCR)</span>
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -675,6 +825,16 @@ export const GradebookStudio: React.FC = () => {
           }}
         />
       )}
+
+      {/* Handwritten OCR Roster Modal */}
+      <StudentRosterOcrModal
+        isOpen={isOcrModalOpen}
+        onClose={() => setIsOcrModalOpen(false)}
+        onApplyStudents={handleApplyOcrStudents}
+        divisionName={activeDivision}
+        divisionsList={divisionsList}
+        currentDivisionId={divisionId}
+      />
     </div>
   );
 };

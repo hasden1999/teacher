@@ -247,11 +247,188 @@ export const LESSON_TEMPLATES = [
             supervisorSignatureSpace: true,
         },
     },
+    // 8. اللغة العربية - الثالث المتوسط: الميزان الصرفي واسم الفاعل
+    {
+        id: 'lp_tpl_arabic_3_inter',
+        lessonId: 'les_arab_3_01',
+        subjectId: 'arabic_intermediate',
+        grade: 3,
+        stage: 'intermediate',
+        stream: 'general',
+        division: 'أ',
+        topic: 'اشتقاق اسم الفاعل وشروط عمله وإعراب معموله',
+        durationMinutes: 45,
+        objectives: [
+            'أن يصوغ الطالب اسم الفاعل من الفعل الثلاثي على وزن (فاعل) ومن غير الثلاثي بإبدال حرف المضارعة ميماً مضمومة وكسر ما قبل الآخر.',
+            'أن يعدد شروط عمل اسم الفاعل المحلى بـ (أل) والمجرد من (أل).',
+            'أن يعرب معمول اسم الفاعل (فاعلاً أو مفعولاً به أو سد مسد الخبر) بدقة.',
+        ],
+        warmup: 'كتابة جملتين على السبورة: (كتبَ محمدٌ الدرسَ) و (أكاتبٌ محمدٌ الدرسَ؟) ومناقشة الفرق بين الفعل (كتب) والاسم المشتق (كاتب) في الدلالة والعمل (5 دقائق).',
+        presentation: '1) شرح قاعدة اشتقاق اسم الفاعل من الثلاثي وغير الثلاثي مع أمثلة متنوعة.\n2) تفصيل شروط عمل اسم الفاعل المجرد من (أل): الدلالة على الحال والاستقبال والاعتماد على نفي أو استفهام أو مبتدأ أو موصوف.\n3) تطبيقات إعرابية وزارية مفصلة على السبورة لبيان موقع المعمول (25 دقيقة).',
+        teachingAids: ['السبورة البيضاء والأقلام الملونة', 'لوحة خرائط ذهنية للمشتقات', 'نماذج أسئلة وزارية'],
+        teachingStrategies: ['الاستقراء القياسي', 'الحوار والمناقشة', 'التدريب التطبيقي المباشر'],
+        assessment: 'سؤال تقويمي فوري: صغ اسم الفاعل من الأفعال (شكر، استخرج، أعطى) ثم أدخله في جملة مفيدة عاملاً وأعرب معموله (10 دقائق).',
+        closure: 'تلخيص القاعدة الصرفية والنحوية وتكليف الطلبة بحل تمرينات اسم الفاعل في كتاب القواعد المقرر (5 دقائق).',
+        supervisoryDoc: {
+            schoolName: 'متوسطة الجمهورية للبنين',
+            teacherName: 'مدرس اللغة العربية',
+            supervisorNotes: 'خطة منهجية رصينة تراعي التكامل بين الصرف والنحو والتطبيق الوزاري.',
+            supervisorSignatureSpace: true,
+        },
+    },
+    // 9. علم الأحياء - السادس العلمي: الخلية والانقسام الخلوي
+    {
+        id: 'lp_tpl_bio_6_sci',
+        lessonId: 'les_bio_6_01',
+        subjectId: 'biology_scientific',
+        grade: 6,
+        stage: 'preparatory',
+        stream: 'scientific',
+        division: 'أ',
+        topic: 'العضيات الخلوية الحية: المايتوكوندريا والبلاستيدات وأطوار الانقسام الخيطي',
+        durationMinutes: 45,
+        objectives: [
+            'أن يعرف الطالب المايتوكوندريا والأعراف والثايلاكويد والكرانا تعريفاً وزارياً دقيقاً.',
+            'أن يقارن الطالب بين المايتوكوندريا والبلاستيدة الخضراء من حيث التركيب والوظيفة.',
+            'أن يرسم الطالب التركيب النموذجي للمايتوكوندريا والبلاستيدة الخضراء مع التأشير الكامل.',
+        ],
+        warmup: 'طرح سؤال استقصائي: من أين تستمد خلية عضلة القلب الطاقة اللازمة للانقباض المستمر طوال حياة الإنسان؟ (5 دقائق).',
+        presentation: '1) شرح موقع وتركيب المايتوكوندريا ووظيفة الأعراف في زيادة المساحة السطحية للطبقة الداخلية وتوليد جزيئات الطاقة ATP.\n2) توضيح أنواع البلاستيدات (الملونة، عديمة اللون، الخضراء) وتركيب السدى والكرانا.\n3) رسم تخطيطي خطوة بخطوة على السبورة لتدريب الطلبة على الرسوم الوزارية المطلوبة (25 دقيقة).',
+        teachingAids: ['مجسم الخلية النباتية والحيوانية', 'السبورة والأقلام الملونة للرسم العلمي', 'مجهري ضوئي وشرائح جاهزة'],
+        teachingStrategies: ['العرض العملي البصري', 'المقارنة التحليلية', 'التعلم التعاوني'],
+        assessment: 'اختبار سريع: علل ما يأتي: 1) تعرف المايتوكوندريا ببيوت الطاقة؟ 2) وجود الأعراف في المايتوكوندريا؟ 3) تحول الكلوكوز إلى سكريات متعددة في البطاطا؟ (10 دقائق).',
+        closure: 'مراجعة جدول المقارنة وتكليف الطلبة برسم المايتوكوندريا والبلاستيدة الخضراء في دفتر الرسوم العلمية وحل أسئلة الفصل الأول (5 دقائق).',
+        supervisoryDoc: {
+            schoolName: 'إعدادية المركزية العلمية',
+            teacherName: 'مدرس الأحياء',
+            supervisorNotes: 'خطة علمية متميزة تجمع بين الدقة النظرية ومهارة الرسم العلمي الوزاري.',
+            supervisorSignatureSpace: true,
+        },
+    },
+    // 10. اللغة الإنكليزية - الثالث المتوسط والسادس الإعدادي: English for Iraq
+    {
+        id: 'lp_tpl_eng_3_inter',
+        lessonId: 'les_eng_3_01',
+        subjectId: 'english_intermediate',
+        grade: 3,
+        stage: 'intermediate',
+        stream: 'general',
+        division: 'أ',
+        topic: 'Unit 1: Describing Places (There is / There are) & Telling the Time',
+        durationMinutes: 45,
+        objectives: [
+            'Students will accurately use (There is / There are) in affirmative, negative, and question sentences.',
+            'Students will tell the time using both 12-hour and 24-hour clock formats.',
+            'Students will describe a shopping mall in Iraq using appropriate adjectives.',
+        ],
+        warmup: 'Show a picture of a modern Iraqi shopping mall on the board and ask students: "What can you see in this mall? Is there an escalator? Are there any cafés?" (5 mins).',
+        presentation: '1) Explain the grammatical structure of singular (There is / There isn\'t / Is there...?) and plural (There are / There aren\'t / Are there...? with some/any).\n2) Demonstrate telling the time (It\'s three fifteen / quarter past three).\n3) Pair work: Students practice asking and answering about places in their town using the Student\'s Book Unit 1 (25 mins).',
+        teachingAids: ['Student\'s Book & Activity Book', 'Whiteboard & Coloured Markers', 'Flashcards of Places & Clocks'],
+        teachingStrategies: ['Communicative Language Teaching (CLT)', 'Pair Work & Role Play', 'Inductive Grammar Discovery'],
+        assessment: 'Board exercise (Ministerial style): 1) (There is / There are) lots of shops in the mall. 2) (15:10) Tell the time. 3) Make negative: There are some sweet shops near here (10 mins).',
+        closure: 'Summarize the rules of (some / any) with (There are) and assign Activity Book Unit 1 Lesson 1 & 2 exercises as homework (5 mins).',
+        supervisoryDoc: {
+            schoolName: 'متوسطة المنصور النموذجية',
+            teacherName: 'مدرس اللغة الإنكليزية',
+            supervisorNotes: 'Well-structured communicative lesson plan aligned with English for Iraq standards.',
+            supervisorSignatureSpace: true,
+        },
+    },
+    // 11. الاجتماعيات - الثالث المتوسط: جغرافية العراق الطبيعية
+    {
+        id: 'lp_tpl_social_3_inter',
+        lessonId: 'les_soc_3_01',
+        subjectId: 'social_intermediate',
+        grade: 3,
+        stage: 'intermediate',
+        stream: 'general',
+        division: 'أ',
+        topic: 'أقسام سطح العراق والموارد المائية (نهرا دجلة والفرات)',
+        durationMinutes: 45,
+        objectives: [
+            'أن يحدد الطالب الموقع الفلكي والجغرافي لوطننا العراق وأهميته الاستراتيجية.',
+            'أن يقارن بين أقسام سطح العراق الأربعة (المنطقة الجبلية، المتموجة، السهل الرسوبي، الهضبة الغربية).',
+            'أن يتتبع مجرى نهري دجلة والفرات وروافدهما على خريطة العراق الصماء بدقة.',
+        ],
+        warmup: 'عرض خريطة العراق الطبيعية وطرح سؤال: لماذا سُمي العراق منذ القدم ببلاد الرافدين؟ وما أثر تنوع تضاريسه على مناخه وزراعته؟ (5 دقائق).',
+        presentation: '1) تحديد حدود العراق ودول الجوار والمساحة الكلية والأهمية الإقليمية.\n2) تفصيل مميزات كل منطقة تضاريسية ونسبتها المئوية من مساحة العراق وأهم الجبال والسهول فيها.\n3) تتبع منابع نهري دجلة والفرات ودخولهما الأراضي العراقية وروافد نهر دجلة الخمسة وملتقى شط العرب (25 دقيقة).',
+        teachingAids: ['خريطة العراق الطبيعية الصماء والملونة', 'السبورة البيضاء', 'أطلس العراق الجغرافي'],
+        teachingStrategies: ['التعلم بالخرائط الجغرافية', 'الحوار والمناقشة', 'الربط بالبيئة الوطنية'],
+        assessment: 'تطبيق على الخريطة الصماء: عيّن (جبل هلكرد، هضبة الجزيرة، سد الموصل، رافد ديالى، هور الحمار) وعلل: تعد المنطقة الجبلية أهم مصادر المياه في العراق؟ (10 دقائق).',
+        closure: 'تلخيص النسب المئوية لأقسام سطح العراق وتكليف الطلبة برسم خريطة العراق وتعيين روافد نهر دجلة عليها في الدفتر (5 دقائق).',
+        supervisoryDoc: {
+            schoolName: 'متوسطة الرصافة للبنين',
+            teacherName: 'مدرس الاجتماعيات',
+            supervisorNotes: 'خطة منهجية متكاملة توظف الخرائط الجغرافية وفق معايير وزارة التربية العراقية.',
+            supervisorSignatureSpace: true,
+        },
+    },
 ];
 export function getAllLessonTemplates() {
     return [...LESSON_TEMPLATES];
 }
 export function getLessonTemplateById(id) {
     return LESSON_TEMPLATES.find((t) => t.id === id);
+}
+/**
+ * Generates a structured 5-step Iraqi MoE daily lesson plan grounded in the teacher's selected
+ * subject, grade, chapter, and topic.
+ */
+export function generateSmartDailyPlan(params) {
+    const studentNoun = params.stage === 'primary' ? 'التلميذ' : 'الطالب';
+    const outcomes = params.learningOutcomes && params.learningOutcomes.length > 0
+        ? params.learningOutcomes
+        : [
+            `يفهم المفاهيم والقواعد الأساسية لموضوع (${params.topic}) ضمن ${params.chapterTitle}.`,
+            `يطبق المهارات العلمية والتدريبات المنهجية الخاصة بـ (${params.topic}) بدقة.`,
+        ];
+    const objectives = [
+        `أن يوضح ${studentNoun} المفهوم الأساسي لموضوع (${params.topic}) بأسلوبه السليم وفق الكتاب المنهجي.`,
+        ...outcomes.map((o) => (o.startsWith('أن ') ? o : `أن ${o}`)),
+        `أن يحل ${studentNoun} التطبيقات والأسئلة التقويمية والوزارية المتعلقة بموضوع (${params.topic}).`,
+    ].slice(0, 4);
+    return {
+        id: `lp_smart_${Date.now()}`,
+        subjectId: params.subjectId,
+        grade: params.grade,
+        stage: params.stage,
+        division: params.division || 'أ',
+        date: params.date || new Date().toISOString().slice(0, 10),
+        topic: `${params.chapterTitle} — ${params.topic}`,
+        durationMinutes: 45,
+        objectives,
+        cognitiveObjectives: [
+            `يستوعب المفردات والمفاهيم المحورية في (${params.topic}).`,
+            `يربط بين مفاهيم (${params.chapterTitle}) والتطبيقات المنهجية المقررة.`,
+        ],
+        affectiveObjectives: [
+            `يقدر أهمية الدقة العلمية والمنهجية في دراسة مادة ${params.subjectNameAr}.`,
+            `يتفاعل بإيجابية مع زملائه أثناء الأنشطة الصفية والمناقشة.`,
+        ],
+        psychomotorObjectives: [
+            `يدون الملخص السبوري وحلول التمارين بخط واضح ومنظم في الدفتر المدرسي.`,
+        ],
+        warmup: `مراجعة سريعة لمفردات الدرس السابق وربطها بموضوع اليوم (${params.topic}) من خلال طرح سؤال تمهيدي يحفز التفكير والاستقصاء لدى الطلبة (5 دقائق).`,
+        presentation: `1) كتابة عنوان الدرس (${params.topic}) والأهداف السلوكية على السبورة وشرح المفاهيم الأساسية الواردة في الكتاب المقرر لـ (${params.chapterTitle}).\n2) عرض الأمثلة المنهجية النموذجية وتفصيل خطوات الاستنتاج والتحليل بمشاركة الطلبة.\n3) تدريب الطلبة عملياً على أنماط الأسئلة المنهجية والوزارية الخاصة بالموضوع وتصويب الإجابات فوراً (25 دقيقة).`,
+        teachingAids: [
+            `الكتاب المدرسي المقرر لمادة ${params.subjectNameAr}`,
+            'السبورة البيضاء والأقلام الملونة',
+            'لوحات توضيحية وخرائط مفاهيم للموضوع',
+            'بطاقات أسئلة تقويمية ووزارية',
+        ],
+        teachingStrategies: [
+            'الحوار والمناقشة الفعالة',
+            'الاستقصاء وحل المشكلات',
+            'التعلم التعاوني والتدريب المباشر',
+        ],
+        assessment: `طرح أسئلة تقويمية ختامية لقياس مدى تحقق الأهداف السلوكية:\nس1/ عرّف أو وضح المقصود بـ (${params.topic}) مع ذكر مثال من الكتاب المقرر.\nس2/ علل أو طبّق القاعدة المدروسة في حل التمرين المنهجي على السبورة (10 دقائق).`,
+        closure: `تلخيص النقاط الجوهرية للدرس وتثبيت الملخص السبوري، وتكليف الطلبة بالواجب البيتي: مراجعة موضوع (${params.topic}) وحل تمارين ومناقشة (${params.chapterTitle}) في الدفتر المدرسي مع تحضير الدرس القادم (5 دقائق).`,
+        supervisoryDoc: {
+            schoolName: params.schoolName || 'المدرسة',
+            teacherName: params.teacherName || 'أستاذ المادة',
+            supervisorNotes: 'خطة يومية مصممة وفق المعايير التربوية المعتمدة في وزارة التربية العراقية.',
+            supervisorSignatureSpace: true,
+        },
+    };
 }
 //# sourceMappingURL=templates.js.map

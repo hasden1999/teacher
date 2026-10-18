@@ -33,7 +33,7 @@ export class DbClient {
   private workerFactory?: () => Worker | any;
 
   constructor(options: DbClientOptions = {}) {
-    this.timeoutMs = options.timeoutMs ?? 15000;
+    this.timeoutMs = options.timeoutMs ?? 5000;
     if (options.workerInstance) {
       this.setWorker(options.workerInstance);
     }
@@ -51,6 +51,12 @@ export class DbClient {
         this.worker.addEventListener('error', (err: any) => {
           this.setStatus('ERROR');
           console.error('SQLite Worker Error:', err);
+          const errMessage = err?.message || 'Worker runtime error';
+          this.pendingRequests.forEach(({ reject, timer }) => {
+            clearTimeout(timer as any);
+            reject(new Error(`WORKER_ERROR: ${errMessage}`));
+          });
+          this.pendingRequests.clear();
         });
       }
     }
@@ -84,8 +90,9 @@ export class DbClient {
       if (this.workerFactory) {
         this.setWorker(this.workerFactory());
       } else if (typeof Worker !== 'undefined') {
-        const workerUrl = new URL('./sqlite.worker.js', import.meta.url);
-        this.setWorker(new Worker(workerUrl, { type: 'module' }));
+        this.setWorker(
+          new Worker(new URL('./sqlite.worker.ts', import.meta.url), { type: 'module' })
+        );
       } else {
         this.setStatus('ERROR');
         throw new Error('WORKER_UNSUPPORTED: Environment lacks Worker support');
@@ -188,6 +195,12 @@ export class DbClient {
     return new Promise<T>((resolve, reject) => {
       if (!this.worker) {
         return reject(new Error('WORKER_NOT_SPAWNED: Call init() first'));
+      }
+      if (this.status === 'ERROR') {
+        return reject(new Error('WORKER_ERROR: Database worker is in error state'));
+      }
+      if (this.status === 'BLOCKED_BY_LOCK') {
+        return reject(new Error('CONCURRENT_TAB_ACTIVE: Multi-tab lock held by another tab'));
       }
 
       const id =

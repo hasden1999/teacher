@@ -76,6 +76,7 @@ export interface QuestionBankItem {
     stream?: AcademicStream;
     chapter: number;
     chapterId?: string;
+    chapterTitle?: string;
     topic: string;
     type: QuestionType;
     difficulty: QuestionDifficulty;
@@ -85,6 +86,7 @@ export interface QuestionBankItem {
     modelAnswer: string;
     defaultMarks?: number;
     isMinisterial: boolean;
+    sourceType?: 'ministerial' | 'book';
     ministerialMeta?: MinisterialExamMetadata;
     containsLatex?: boolean;
     tags: string[];
@@ -95,9 +97,11 @@ export interface QuestionBankFilterOptions {
     stage?: EducationalStage;
     stream?: AcademicStream;
     chapter?: number;
+    topic?: string;
     difficulty?: QuestionDifficulty;
     type?: QuestionType;
     isMinisterial?: boolean;
+    sourceType?: 'ministerial' | 'book';
     searchTerm?: string;
     tags?: string[];
 }

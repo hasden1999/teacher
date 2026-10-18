@@ -8,7 +8,7 @@
  * - Safe SQLite persistence
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   rescheduleLessonPlan,
   checkIraqiDate,
@@ -16,7 +16,7 @@ import {
   type ScheduledLesson,
   ARABIC_WEEKDAYS,
 } from '@techeeer/core';
-import { calculateLessonProgress } from '@techeeer/content';
+import { calculateLessonProgress, getChaptersBySubject } from '@techeeer/content';
 
 export interface PlanTrackerItem {
   id: string;
@@ -28,28 +28,67 @@ export interface PlanTrackerItem {
 }
 
 export interface PlanTrackerProps {
+  subjectId?: string;
+  grade?: number;
   initialItems?: PlanTrackerItem[];
   teachingDays?: number[]; // [0, 2, 4] for Sunday, Tuesday, Thursday
   onItemsChange?: (items: PlanTrackerItem[]) => void;
 }
 
-const DEFAULT_SAMPLE_ITEMS: PlanTrackerItem[] = [
-  { id: 'les_1', title: 'الجهاز التنفسي: الأجزاء والوظائف', unit: 'الوحدة الأولى: جسم الإنسان', scheduledDate: '2026-10-04', status: 'completed' },
-  { id: 'les_2', title: 'آلية الشهيق والزفير وتبادل الغازات', unit: 'الوحدة الأولى: جسم الإنسان', scheduledDate: '2026-10-06', status: 'completed' },
-  { id: 'les_3', title: 'العادات الصحية للمحافظة على الرئتين', unit: 'الوحدة الأولى: جسم الإنسان', scheduledDate: '2026-10-08', status: 'scheduled' },
-  { id: 'les_4', title: 'الجهاز الهضمي وصحته (1)', unit: 'الوحدة الأولى: جسم الإنسان', scheduledDate: '2026-10-11', status: 'scheduled' },
-  { id: 'les_5', title: 'الجهاز الهضمي وصحته (2)', unit: 'الوحدة الأولى: جسم الإنسان', scheduledDate: '2026-10-13', status: 'scheduled' },
-  { id: 'les_6', title: 'العناصر الكيميائية وتصنيفها', unit: 'الوحدة الثانية: المادة وتفاعلاتها', scheduledDate: '2026-10-15', status: 'scheduled' },
-  { id: 'les_7', title: 'الرابطة الأيونية وخواصها', unit: 'الوحدة الثانية: المادة وتفاعلاتها', scheduledDate: '2026-10-18', status: 'scheduled' },
-  { id: 'les_8', title: 'الرابطة التساهمية وتراكيب لويس', unit: 'الوحدة الثانية: المادة وتفاعلاتها', scheduledDate: '2026-10-20', status: 'scheduled' },
-];
+function buildSubjectTrackerItems(subjectId: string, grade: number): PlanTrackerItem[] {
+  const chapters = getChaptersBySubject(subjectId, grade);
+  const dates = [
+    '2026-10-04',
+    '2026-10-06',
+    '2026-10-08',
+    '2026-10-11',
+    '2026-10-13',
+    '2026-10-15',
+    '2026-10-18',
+    '2026-10-20',
+    '2026-10-22',
+    '2026-10-25',
+  ];
+  const result: PlanTrackerItem[] = [];
+  let idx = 0;
+
+  for (const ch of chapters) {
+    for (const topic of ch.topics) {
+      if (idx >= dates.length) break;
+      result.push({
+        id: `les_${subjectId}_${idx + 1}`,
+        title: topic,
+        unit: `الفصل ${ch.chapterNumber}: ${ch.chapterTitle}`,
+        scheduledDate: dates[idx],
+        status: idx < 2 ? 'completed' : 'scheduled',
+      });
+      idx++;
+    }
+    if (idx >= dates.length) break;
+  }
+
+  return result;
+}
 
 export const PlanTracker: React.FC<PlanTrackerProps> = ({
-  initialItems = DEFAULT_SAMPLE_ITEMS,
+  subjectId = 'science_primary',
+  grade = 5,
+  initialItems,
   teachingDays = [0, 2, 4], // الأحد، الثلاثاء، الخميس
   onItemsChange,
 }) => {
-  const [items, setItems] = useState<PlanTrackerItem[]>(initialItems);
+  const [items, setItems] = useState<PlanTrackerItem[]>(() =>
+    initialItems && initialItems.length > 0
+      ? initialItems
+      : buildSubjectTrackerItems(subjectId, grade)
+  );
+
+  useEffect(() => {
+    if (!initialItems) {
+      setItems(buildSubjectTrackerItems(subjectId, grade));
+    }
+  }, [subjectId, grade, initialItems]);
+
   const [selectedTeachingDays, setSelectedTeachingDays] = useState<number[]>(teachingDays);
   const [startDate, setStartDate] = useState<string>('2026-10-04');
   const [endDate, setEndDate] = useState<string>('2027-01-31');

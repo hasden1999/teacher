@@ -24,36 +24,107 @@ export interface ExamEditorProps {
   initialAST?: ExamPaperAST;
   onSave?: (ast: ExamPaperAST) => void;
   teacherSubject?: string;
+  teacherSubjectId?: string;
   teacherGrade?: number;
+  teacherStage?: string;
+  teacherDivision?: string;
   className?: string;
 }
 
-const DEFAULT_RAW_TEXT = `جمهورية العراق
+function buildDefaultSubjectRawText(subjectName: string, grade: number, division?: string): string {
+  const gradeLabel = division ? `الصف ${grade} (شعبة ${division})` : `الصف ${grade}`;
+  const isMath = subjectName.includes('رياضيات');
+  const isArabic = subjectName.includes('عربي');
+  const isEnglish = subjectName.includes('إنكليزي') || subjectName.includes('إنجليزي');
+  const isBiology = subjectName.includes('أحياء');
+
+  if (isMath) {
+    return `جمهورية العراق
 وزارة التربية
-المديرية العامة لتربية الكرخ
-مدرسة المتميزين للبنين
+المديرية العامة للتربية
 امتحان نصف السنة للعام الدراسي 2026 - 2027
-المادة: الكيمياء | الصف: الخامس العلمي | الوقت: ساعتان ونصف
+المادة: ${subjectName} | الصف: ${gradeLabel} | الوقت: ساعتان
+ملاحظة: الإجابة عن خمسة أسئلة فقط ولكل سؤال 20 درجة
+
+س1: أجب عما يأتي: (20 درجة)
+فرع أ: بسط الجملة العددية الآتية باستعمال ترتيب العمليات: $\\sqrt{12} - \\sqrt{18} \\times \\sqrt{2}$ (10 درجات)
+فرع ب: جد مجموعة حل المعادلة: $x^2 - 5x + 6 = 0$ (10 درجات)
+
+س2: جد ناتج ما يأتي: (20 درجة)
+فرع أ: جد الجذر التربيعي والتكعيبي للمقدار: $\\sqrt[3]{-27} + \\sqrt{25}$ (10 درجات)
+فرع ب: اكتب الحد العشرين من المتتابعة الحسابية $\{6, 1, -4, -9, ...\}$ (10 درجات)`;
+  }
+
+  if (isArabic) {
+    return `جمهورية العراق
+وزارة التربية
+المديرية العامة للتربية
+امتحان نصف السنة للعام الدراسي 2026 - 2027
+المادة: ${subjectName} | الصف: ${gradeLabel} | الوقت: ساعتان
+ملاحظة: الإجابة عن خمسة أسئلة فقط ولكل سؤال 20 درجة
+
+س1: قواعد اللغة العربية: (20 درجة)
+فرع أ: زن أربعة من الكلمات الآتية بالميزان الصرفي: (بعثر، قُلْ، استغفر، سَارَ، جعفر) (10 درجات)
+فرع ب: هات اسم الفاعل من الأفعال الآتية مع بيان السبب: (كتب، استخرج، صام) (10 درجات)
+
+س2: الأدب والنصوص: (20 درجة)
+فرع أ: ما المقصود بالأدب؟ وما قسماه الرئيسان؟ (10 درجات)
+فرع ب: انسب المؤلفات الأدبية الآتية إلى أصحابها (10 درجات)`;
+  }
+
+  if (isBiology) {
+    return `جمهورية العراق
+وزارة التربية
+المديرية العامة للتربية
+امتحان نصف السنة للعام الدراسي 2026 - 2027
+المادة: ${subjectName} | الصف: ${gradeLabel} | الوقت: ساعتان
 ملاحظة: الإجابة عن خمسة أسئلة فقط ولكل سؤال 20 درجة
 
 س1: عرف ما يأتي: (20 درجة)
-فرع أ: المحلول المنظم (10 درجات)
-فرع ب: قاعدة لوشاتليه (10 درجات)
+فرع أ: بيوت الطاقة (المايتوكوندريا) (10 درجات)
+فرع ب: التمثيل الغذائي (الأيض) (10 درجات)
 
-س2: أجب عن الآتي: (20 درجة)
-فرع أ: اكتب معادلة تفكك كربونات الكالسيوم \\ce{CaCO3 -> CaO + CO2} (10 درجات)
-فرع ب: احسب قيمة $pH$ لمحلول حامض الهيدروكلوريك بتركيز $0.01M$ (10 درجات)
+س2: علل ما يأتي: (20 درجة)
+فرع أ: تسمية كريات الدم البيض بهذا الاسم (10 درجات)
+فرع ب: وجود غضاريف في جدار القصبة الهوائية (10 درجات)`;
+  }
 
-س3: علل ما يأتي: (20 درجة)
-أولاً: زيادة الضغط ترجح التفاعل نحو الحجم الأقل (10 درجات)
-ثانياً: تزداد قابلية ذوبان معظم المواد الصلبة بارتفاع درجة الحرارة (10 درجات)
+  if (isEnglish) {
+    return `جمهورية العراق
+وزارة التربية
+المديرية العامة للتربية
+امتحان نصف السنة للعام الدراسي 2026 - 2027
+المادة: ${subjectName} | الصف: ${gradeLabel} | الوقت: ساعتان
+ملاحظة: الإجابة عن كافة الأسئلة
 
-س4: مسألة كيميائية: (20 درجة)
-احسب قيمة ثابت الاتزان $K_{eq}$ للتفاعل الغازي عند درجة حرارة $25^\\circ C$
+س1: Grammar and Functions: (20 درجة)
+فرع أ: Put the verb in the Past Continuous or Past Simple (10 درجات)
+فرع ب: Rewrite the sentence politely (10 درجات)
 
-س5: قارن بين كل مما يأتي: (20 درجة)
-فرع أ: النظام المفتوح والنظام المغلق (10 درجات)
-فرع ب: العمليات التلقائية وغير التلقائية (10 درجات)`;
+س2: Vocabulary and Textbook Passages: (20 درجة)
+فرع أ: Fill in the blanks with the suitable words from the list (10 درجات)
+فرع ب: Answer the comprehension questions from your textbook (10 درجات)`;
+  }
+
+  return `جمهورية العراق
+وزارة التربية
+المديرية العامة للتربية
+امتحان نصف السنة للعام الدراسي 2026 - 2027
+المادة: ${subjectName} | الصف: ${gradeLabel} | الوقت: ساعتان
+ملاحظة: الإجابة عن خمسة أسئلة فقط ولكل سؤال 20 درجة
+
+س1: عرف ما يأتي: (20 درجة)
+فرع أ: اكتب المصطلح الأول هنا (10 درجات)
+فرع ب: اكتب المصطلح الثاني هنا (10 درجات)
+
+س2: علل ما يأتي: (20 درجة)
+فرع أ: اكتب التعليل الأول هنا (10 درجات)
+فرع ب: اكتب التعليل الثاني هنا (10 درجات)
+
+س3: اختر الإجابة الصحيحة من بين الأقواس: (20 درجة)
+فرع أ: النقطة الأولى للاختيار (10 درجات)
+فرع ب: النقطة الثانية للاختيار (10 درجات)`;
+}
 
 /**
  * Normalizes and formalizes exam question instructions and punctuation
@@ -92,22 +163,40 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
   initialText,
   initialAST,
   onSave,
-  teacherSubject = 'الكيمياء',
+  teacherSubject = 'العلوم',
+  teacherSubjectId,
   teacherGrade = 5,
+  teacherStage,
+  teacherDivision,
   className = '',
 }) => {
-  // Initialize AST state
+  const defaultRawTextForSubject = useMemo(
+    () => buildDefaultSubjectRawText(teacherSubject, teacherGrade, teacherDivision),
+    [teacherSubject, teacherGrade, teacherDivision]
+  );
+
+  // Initialize AST state with safe validation against corrupted localStorage
   const [ast, setAst] = useState<ExamPaperAST>(() => {
-    if (initialAST) return initialAST;
+    if (initialAST && initialAST.header && Array.isArray(initialAST.questions)) return initialAST;
     if (typeof localStorage !== 'undefined') {
       const saved = localStorage.getItem('techeeer_exam_draft_ast');
       if (saved) {
         try {
-          return JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object' && parsed.header && Array.isArray(parsed.questions)) {
+            return {
+              ...parsed,
+              header: {
+                ...parsed.header,
+                subject: teacherSubject || parsed.header.subject,
+                grade: teacherDivision ? `الصف ${teacherGrade} (${teacherDivision})` : `الصف ${teacherGrade}`,
+              },
+            };
+          }
         } catch {}
       }
     }
-    return parseExamPaperAST(initialText || DEFAULT_RAW_TEXT);
+    return parseExamPaperAST(initialText || defaultRawTextForSubject);
   });
 
   const [rawText, setRawText] = useState<string>(() => {
@@ -117,12 +206,37 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
       const savedAst = localStorage.getItem('techeeer_exam_draft_ast');
       if (savedAst) {
         try {
-          return serializeExamPaperAST(JSON.parse(savedAst));
+          const parsed = JSON.parse(savedAst);
+          if (parsed && typeof parsed === 'object' && parsed.header && Array.isArray(parsed.questions)) {
+            return serializeExamPaperAST(parsed);
+          }
         } catch {}
       }
     }
-    return DEFAULT_RAW_TEXT;
+    return defaultRawTextForSubject;
   });
+
+  // Reactive sync when teacher switches active class/division or subject specialization
+  useEffect(() => {
+    const targetGradeStr = teacherDivision
+      ? `الصف ${teacherGrade} (شعبة ${teacherDivision})`
+      : `الصف ${teacherGrade}`;
+    setAst((prev) => {
+      if (prev.header.subject === teacherSubject && prev.header.grade === targetGradeStr) {
+        return prev;
+      }
+      const next = {
+        ...prev,
+        header: {
+          ...prev.header,
+          subject: teacherSubject,
+          grade: targetGradeStr,
+        },
+      };
+      setRawText(serializeExamPaperAST(next));
+      return next;
+    });
+  }, [teacherSubject, teacherGrade, teacherDivision]);
 
   // Auto-save exam draft to local storage so teacher work is never lost
   useEffect(() => {
@@ -150,10 +264,10 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
   const printSheetRef = useRef<HTMLDivElement>(null);
   const naturalTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Live Marks Calculation
+  // Live Marks Calculation with null safety
   const marksSummary: ExamMarksSummary = useMemo(() => {
-    return calculateExamTotalMarks(ast.questions);
-  }, [ast.questions]);
+    return calculateExamTotalMarks(Array.isArray(ast?.questions) ? ast.questions : []);
+  }, [ast?.questions]);
 
   // Handle Mode Switching with Bidirectional Sync
   const handleSwitchMode = useCallback((newMode: EditorMode) => {
@@ -227,6 +341,89 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
       branches: [],
       marks: 20,
     };
+    const nextAST = { ...ast, questions: [...ast.questions, newQ] };
+    commitAstChange(nextAST);
+  };
+
+  // Quick 1-click question type generator with automatic numbering & formal branches (Req 5.1)
+  const handleQuickAddQuestionType = (
+    preset: 'define' | 'explain' | 'mcq' | 'blanks' | 'compare' | 'math' | 'tf'
+  ) => {
+    const nextNum = ast.questions.length + 1;
+    const presets: Record<
+      typeof preset,
+      { instruction: string; branches: Array<{ label: string; text: string; marks: number }> }
+    > = {
+      define: {
+        instruction: 'عرف ما يأتي:',
+        branches: [
+          { label: 'أولاً', text: 'اكتب المصطلح الأول هنا...', marks: 10 },
+          { label: 'ثانياً', text: 'اكتب المصطلح الثاني هنا...', marks: 10 },
+        ],
+      },
+      explain: {
+        instruction: 'علل ما يأتي:',
+        branches: [
+          { label: 'أولاً', text: 'اكتب التعليل الأول هنا...', marks: 10 },
+          { label: 'ثانياً', text: 'اكتب التعليل الثاني هنا...', marks: 10 },
+        ],
+      },
+      mcq: {
+        instruction: 'اختر الإجابة الصحيحة من بين الأقواس لكل مما يأتي:',
+        branches: [
+          { label: '1', text: 'العبارة الأولى (الخيار أ ، الخيار ب ، الخيار ج)', marks: 10 },
+          { label: '2', text: 'العبارة الثانية (الخيار أ ، الخيار ب ، الخيار ج)', marks: 10 },
+        ],
+      },
+      blanks: {
+        instruction: 'املأ الفراغات الآتية بما يناسبها:',
+        branches: [
+          { label: '1', text: '.................... هو ....................', marks: 10 },
+          { label: '2', text: 'تتكون .................... من ....................', marks: 10 },
+        ],
+      },
+      compare: {
+        instruction: 'قارن بين كل مما يأتي:',
+        branches: [
+          { label: 'أ', text: 'المقارنة الأولى (من حيث الوظيفة والتركيب)', marks: 20 },
+        ],
+      },
+      math: {
+        instruction: 'جد ناتج ما يأتي:',
+        branches: [
+          { label: 'أ', text: 'بسط المقدار الجبري: $\\sqrt{x^2 + 1}$', marks: 10 },
+          { label: 'ب', text: 'جد مجموعة حل المعادلة: $\\frac{x+1}{2} = 5$', marks: 10 },
+        ],
+      },
+      tf: {
+        instruction: 'ضع كلمة (صح) أمام العبارة الصحيحة وكلمة (خطأ) أمام العبارة غير الصحيحة:',
+        branches: [
+          { label: '1', text: 'العبارة الأولى ( )', marks: 10 },
+          { label: '2', text: 'العبارة الثانية ( )', marks: 10 },
+        ],
+      },
+    };
+
+    const chosen = presets[preset];
+    const mappedBranches: ExamBranchAST[] = chosen.branches.map((b, idx) => ({
+      id: `br_${nextNum}_${idx}_${Date.now()}`,
+      label: b.label,
+      text: b.text,
+      marks: b.marks,
+    }));
+
+    const newQ: ExamQuestionAST = {
+      id: `q_${nextNum}_${Date.now()}`,
+      questionNumber: nextNum,
+      headerLabel: `س${nextNum}`,
+      header: `س${nextNum}: ${chosen.instruction}`,
+      type: 'GENERAL',
+      instruction: chosen.instruction,
+      subItems: mappedBranches.map((b) => ({ label: b.label, text: b.text, marks: b.marks })),
+      branches: mappedBranches,
+      marks: 20,
+    };
+
     const nextAST = { ...ast, questions: [...ast.questions, newQ] };
     commitAstChange(nextAST);
   };
@@ -631,6 +828,67 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
           {mode === 'structured' ? (
             /* Structured Tree Mode */
             <div className="space-y-4 max-w-3xl mx-auto w-full">
+              {/* Quick Question Type Shortcuts Bar (Req 5.1: اختصارات سريعة لنوع السؤال وترقيم تلقائي) */}
+              <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-teal-200 dark:border-slate-800 shadow-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-extrabold text-teal-900 dark:text-teal-300 flex items-center gap-1.5">
+                    <span>⚡</span>
+                    <span>إدراج سريع لنوع السؤال (ترقيم وزاري تلقائي س{ast.questions.length + 1}):</span>
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickAddQuestionType('define')}
+                    className="min-h-[36px] px-3 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 dark:bg-teal-950/60 dark:text-teal-200 border border-teal-200 dark:border-teal-800 font-bold cursor-pointer transition active:scale-95"
+                  >
+                    + عرّف ما يأتي
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickAddQuestionType('explain')}
+                    className="min-h-[36px] px-3 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 dark:bg-teal-950/60 dark:text-teal-200 border border-teal-200 dark:border-teal-800 font-bold cursor-pointer transition active:scale-95"
+                  >
+                    + علل ما يأتي
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickAddQuestionType('mcq')}
+                    className="min-h-[36px] px-3 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 dark:bg-teal-950/60 dark:text-teal-200 border border-teal-200 dark:border-teal-800 font-bold cursor-pointer transition active:scale-95"
+                  >
+                    + اختر الإجابة
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickAddQuestionType('blanks')}
+                    className="min-h-[36px] px-3 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 dark:bg-teal-950/60 dark:text-teal-200 border border-teal-200 dark:border-teal-800 font-bold cursor-pointer transition active:scale-95"
+                  >
+                    + املأ الفراغات
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickAddQuestionType('compare')}
+                    className="min-h-[36px] px-3 py-1 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-900 dark:bg-teal-950/60 dark:text-teal-200 border border-teal-200 dark:border-teal-800 font-bold cursor-pointer transition active:scale-95"
+                  >
+                    + قارن بين
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickAddQuestionType('math')}
+                    className="min-h-[36px] px-3 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 font-bold cursor-pointer transition active:scale-95"
+                  >
+                    {'+ مسألة / جذر (√x)'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickAddQuestionType('tf')}
+                    className="min-h-[36px] px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-bold cursor-pointer transition active:scale-95"
+                  >
+                    + صح أم خطأ
+                  </button>
+                </div>
+              </div>
+
               {/* Question Cards Feed */}
               {ast.questions.map((q, qIdx) => (
                 <div
@@ -955,6 +1213,19 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
             onPrint={handleTriggerPrint}
             onExportPdf={handleExportPdf}
             onExportImage={handleExportImage}
+            onQuickEditQuestion={(qIdx, newInstruction) => {
+              updateQuestion(qIdx, (curr) => ({
+                ...curr,
+                instruction: formatFormalExamText(newInstruction),
+                header: `${curr.headerLabel || `س${curr.questionNumber}`}: ${formatFormalExamText(newInstruction)}`.trim(),
+              }));
+            }}
+            onQuickEditBranch={(qIdx, bIdx, newText) => {
+              updateBranch(qIdx, bIdx, (curr) => ({
+                ...curr,
+                text: formatFormalExamText(newText),
+              }));
+            }}
             className="w-full"
           />
         </div>
@@ -1135,8 +1406,10 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
       <QuestionBankModal
         isOpen={questionBankOpen}
         onClose={() => setQuestionBankOpen(false)}
-        subject={teacherSubject}
+        subject={teacherSubjectId || teacherSubject}
+        subjectNameAr={teacherSubject}
         grade={teacherGrade}
+        stage={teacherStage as any}
         onInsertAsNewQuestion={handleInsertBankQuestion}
         onInsertAsSubBranch={handleInsertBankBranch}
       />

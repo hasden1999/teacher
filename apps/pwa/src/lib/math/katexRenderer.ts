@@ -45,6 +45,7 @@ export function renderKatexToString(latex: string, options?: KatexOptions): stri
       displayMode: options?.displayMode ?? false,
       throwOnError: options?.throwOnError ?? false,
       errorColor: options?.errorColor ?? '#dc2626',
+      strict: false,
     });
 
     // Always sanitize all rendered HTML output - NO length bypasses or unescaped returns

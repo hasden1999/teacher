@@ -10,6 +10,7 @@ import { dbClient } from '../../worker/dbClient.js';
 interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
+  onReset?: () => void;
 }
 
 interface ErrorBoundaryState {
@@ -46,6 +47,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   private handleResetToHome = (): void => {
     try {
+      // Safely remove transient UI draft caches if corrupted, preserving teacher profile & SQLite DB
+      localStorage.removeItem('techeeer_exam_draft_ast');
       window.location.hash = '#gradebook';
     } catch {}
     this.setState({
@@ -54,6 +57,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       errorInfo: null,
       exportSuccess: false,
     });
+    this.props.onReset?.();
   };
 
   private handleEmergencyExport = async (): Promise<void> => {

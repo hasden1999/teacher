@@ -9,7 +9,7 @@
  * Plus Supervisory Inspection block, Template picker, and 35-50 min duration validation.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { DailyLessonPlan, TeacherProfile } from '@techeeer/content';
 import {
   LESSON_TEMPLATES,
@@ -17,10 +17,16 @@ import {
   cloneLessonPlan,
   validateLessonPlanDuration,
   filterCurriculumForTeacher,
+  getChaptersBySubject,
+  getSubjectById,
+  generateSmartDailyPlan,
 } from '@techeeer/content';
+import { getActiveGeminiApiKey } from '../../config/aiConfig.js';
+import { useToast } from '../common/Toast.js';
 
 export interface LessonPlanEditorProps {
   teacher?: TeacherProfile;
+  activeDivision?: string;
   initialPlan?: DailyLessonPlan;
   onSave?: (plan: DailyLessonPlan, scheduledDate: string) => void;
   onClose?: () => void;
@@ -33,45 +39,111 @@ export const LessonPlanEditor: React.FC<LessonPlanEditorProps> = ({
     grade: 5,
     secondarySubjects: [],
   },
+  activeDivision = 'أ',
   initialPlan,
   onSave,
   onClose,
 }) => {
-  // Available templates matching teacher profile
-  const matchingTemplates = filterCurriculumForTeacher(teacher, LESSON_TEMPLATES);
-  const defaultPlan = initialPlan ?? matchingTemplates[0] ?? LESSON_TEMPLATES[0];
+  const { showToast } = useToast();
+  const subjectNameAr = useMemo(
+    () => getSubjectById(teacher?.subject)?.nameAr || 'المنهج الدراسي',
+    [teacher?.subject]
+  );
 
-  const [currentPlan, setCurrentPlan] = useState<DailyLessonPlan>({
-    ...defaultPlan,
-    objectives: [...defaultPlan.objectives],
-    cognitiveObjectives: defaultPlan.cognitiveObjectives ? [...defaultPlan.cognitiveObjectives] : [],
-    affectiveObjectives: defaultPlan.affectiveObjectives ? [...defaultPlan.affectiveObjectives] : [],
-    psychomotorObjectives: defaultPlan.psychomotorObjectives ? [...defaultPlan.psychomotorObjectives] : [],
-    teachingAids: defaultPlan.teachingAids ? [...defaultPlan.teachingAids] : [],
-    teachingStrategies: defaultPlan.teachingStrategies ? [...defaultPlan.teachingStrategies] : [],
-  });
+  // Chapters & Topics strictly for the teacher's subject specialization (Req 4 & Req 7.1)
+  const subjectChapters = useMemo(
+    () => getChaptersBySubject(teacher?.subject || 'science_primary', teacher?.grade || 5),
+    [teacher?.subject, teacher?.grade]
+  );
 
-  // Auto-synchronize when teacher subject or profile changes
+  const [selectedChapterNum, setSelectedChapterNum] = useState<number>(1);
+  const currentChapter = useMemo(
+    () => subjectChapters.find((c) => c.chapterNumber === selectedChapterNum) || subjectChapters[0],
+    [subjectChapters, selectedChapterNum]
+  );
+
+  // Available templates matching teacher profile with safe fallback (Req 1)
+  const matchingTemplates = useMemo(
+    () => filterCurriculumForTeacher(teacher, LESSON_TEMPLATES),
+    [teacher]
+  );
+
+  const buildSafeInitialPlan = (): DailyLessonPlan => {
+    const candidate =
+      initialPlan ??
+      matchingTemplates[0] ??
+      generateSmartDailyPlan({
+        subjectId: teacher?.subject || 'science_primary',
+        subjectNameAr,
+        grade: teacher?.grade || 5,
+        stage: teacher?.stage || 'primary',
+        chapterTitle: currentChapter?.chapterTitle || 'الفصل الأول',
+        topic: currentChapter?.topics?.[0] || `مقدمة في ${subjectNameAr}`,
+        division: activeDivision,
+      });
+
+    return {
+      ...candidate,
+      division: activeDivision || candidate.division || 'أ',
+      objectives: Array.isArray(candidate?.objectives) ? [...candidate.objectives] : [],
+      cognitiveObjectives: Array.isArray(candidate?.cognitiveObjectives)
+        ? [...candidate.cognitiveObjectives]
+        : [],
+      affectiveObjectives: Array.isArray(candidate?.affectiveObjectives)
+        ? [...candidate.affectiveObjectives]
+        : [],
+      psychomotorObjectives: Array.isArray(candidate?.psychomotorObjectives)
+        ? [...candidate.psychomotorObjectives]
+        : [],
+      teachingAids: Array.isArray(candidate?.teachingAids) ? [...candidate.teachingAids] : [],
+      teachingStrategies: Array.isArray(candidate?.teachingStrategies)
+        ? [...candidate.teachingStrategies]
+        : [],
+    };
+  };
+
+  const [currentPlan, setCurrentPlan] = useState<DailyLessonPlan>(buildSafeInitialPlan);
+  const [scheduledDate, setScheduledDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
+  const [periodLabel, setPeriodLabel] = useState<string>('الحصة الأولى');
+  const [isGeneratingAiPlan, setIsGeneratingAiPlan] = useState<boolean>(false);
+
+  // Auto-synchronize when teacher subject, grade, or activeDivision changes
   useEffect(() => {
     const updatedMatching = filterCurriculumForTeacher(teacher, LESSON_TEMPLATES);
-    if (updatedMatching.length > 0 && currentPlan.subjectId !== teacher.subject) {
+    const ch = getChaptersBySubject(teacher?.subject || 'science_primary', teacher?.grade || 5)[0];
+    setSelectedChapterNum(1);
+
+    if (updatedMatching.length > 0) {
       const match = updatedMatching[0];
       setCurrentPlan({
         ...match,
         id: `lp_${Date.now()}`,
-        objectives: [...match.objectives],
-        cognitiveObjectives: match.cognitiveObjectives ? [...match.cognitiveObjectives] : [],
-        affectiveObjectives: match.affectiveObjectives ? [...match.affectiveObjectives] : [],
-        psychomotorObjectives: match.psychomotorObjectives ? [...match.psychomotorObjectives] : [],
-        teachingAids: match.teachingAids ? [...match.teachingAids] : [],
-        teachingStrategies: match.teachingStrategies ? [...match.teachingStrategies] : [],
+        grade: teacher?.grade || match.grade,
+        division: activeDivision || match.division || 'أ',
+        objectives: [...(match.objectives || [])],
+        cognitiveObjectives: [...(match.cognitiveObjectives || [])],
+        affectiveObjectives: [...(match.affectiveObjectives || [])],
+        psychomotorObjectives: [...(match.psychomotorObjectives || [])],
+        teachingAids: [...(match.teachingAids || [])],
+        teachingStrategies: [...(match.teachingStrategies || [])],
       });
+    } else {
+      setCurrentPlan(
+        generateSmartDailyPlan({
+          subjectId: teacher?.subject || 'science_primary',
+          subjectNameAr: getSubjectById(teacher?.subject)?.nameAr || 'المادة',
+          grade: teacher?.grade || 5,
+          stage: teacher?.stage || 'primary',
+          chapterTitle: ch?.chapterTitle || 'الفصل الأول',
+          topic: ch?.topics?.[0] || 'الدرس الأول',
+          division: activeDivision || 'أ',
+        })
+      );
     }
-  }, [teacher]);
+  }, [teacher?.subject, teacher?.grade, activeDivision]);
 
-  const [scheduledDate, setScheduledDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
   const [activeStepTab, setActiveStepTab] = useState<number>(0);
   const [isSupervisoryPrintOpen, setIsSupervisoryPrintOpen] = useState(false);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
@@ -83,11 +155,125 @@ export const LessonPlanEditor: React.FC<LessonPlanEditorProps> = ({
 
   const isDurationValid = validateLessonPlanDuration(currentPlan.durationMinutes);
 
+  // AI Smart Lesson Plan Generator (Req 7: مولد الخطة الدراسية الذكي وفق وزارة التربية العراقية)
+  const handleGenerateAiDailyPlan = async () => {
+    const topicToUse = currentPlan.topic?.trim() || currentChapter?.topics?.[0] || subjectNameAr;
+    const chapterTitleToUse = currentChapter?.chapterTitle || `الفصل ${selectedChapterNum}`;
+
+    setIsGeneratingAiPlan(true);
+
+    // Always prepare the Iraqi MoE deterministic smart plan first as immediate baseline/fallback
+    const smartFallback = {
+      ...generateSmartDailyPlan({
+        subjectId: teacher?.subject || 'science_primary',
+        subjectNameAr,
+        grade: teacher?.grade || 5,
+        stage: teacher?.stage || 'primary',
+        chapterTitle: chapterTitleToUse,
+        topic: topicToUse,
+        division: currentPlan.division || activeDivision || 'أ',
+        date: currentPlan.date,
+      }),
+      durationMinutes: currentPlan.durationMinutes || 45,
+    };
+
+    const activeKey = getActiveGeminiApiKey();
+    if (!activeKey) {
+      setCurrentPlan(smartFallback);
+      setIsGeneratingAiPlan(false);
+      showToast({
+        message: `تم توليد الخطة اليومية الوزارية لموضوع (${topicToUse}) وفق معايير وزارة التربية العراقية!`,
+        type: 'success',
+      });
+      return;
+    }
+
+    try {
+      const prompt = `أنت مشرف تربوي أقدم في وزارة التربية العراقية متخصص في مادة (${subjectNameAr}) للصف (${teacher?.grade || 5}).
+المطلوب إعداد خطة درس يومية رسمية متكاملة (خماسية التدريس الوزارية المعتمدة في العراق) للبيانات التالية:
+- التاريخ والفترة: ${scheduledDate} (${periodLabel})
+- المادة: ${subjectNameAr} | الصف: ${teacher?.grade || 5} | الشعبة: ${currentPlan.division || 'أ'}
+- الفصل المنهجي: الفصل ${selectedChapterNum} (${chapterTitleToUse})
+- موضوع الدرس: ${topicToUse}
+- زمن الحصة: ${currentPlan.durationMinutes || 45} دقيقة
+
+أعد استجابة بصيغة JSON فقط مطابقة للهيكل التالي دون أي نص خارجي:
+{
+  "objectives": ["3 أهداف سلوكية دقيقة تبدأ بـ (أن + فعل مضارع قابل للقياس + الطالب/التلميذ)"],
+  "cognitiveObjectives": ["هدفان في المجال المعرفي"],
+  "affectiveObjectives": ["هدفان في المجال الوجداني والقيمي"],
+  "psychomotorObjectives": ["هدفان في المجال المهاري/التطبيقي"],
+  "teachingAids": ["4 وسائل تعليمية مناسبة للموضوع في المدارس العراقية"],
+  "teachingStrategies": ["3 استراتيجيات تدريس حديثة معتمدة"],
+  "warmup": "التمهيد والتهيئة الحافزة (5 دقائق) مع سؤال استكشافي يربط الدرس السابق بالحالي",
+  "presentation": "العرض والأنشطة التعليمية التفصيلية (25 دقيقة) موزعة على خطوات علمية واضحة من منهج وزارة التربية العراقية",
+  "assessment": "التقويم التكويني (10 دقائق) يتضمن أسئلة شفهية وتحريرية لقياس تحقق الأهداف السلوكية",
+  "closure": "الواجب البيتي وغلق الدرس (5 دقائق) مع تحديد المطلوب من الكتاب المدرسي للدرس القادم"
+}`;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(activeKey)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              response_mime_type: 'application/json',
+              temperature: 0.2,
+            },
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const parsed = JSON.parse(raw.replace(/```json/g, '').replace(/```/g, '').trim());
+        if (parsed && typeof parsed === 'object') {
+          setCurrentPlan({
+            ...smartFallback,
+            objectives: Array.isArray(parsed.objectives) && parsed.objectives.length > 0 ? parsed.objectives : smartFallback.objectives,
+            cognitiveObjectives: Array.isArray(parsed.cognitiveObjectives) ? parsed.cognitiveObjectives : smartFallback.cognitiveObjectives,
+            affectiveObjectives: Array.isArray(parsed.affectiveObjectives) ? parsed.affectiveObjectives : smartFallback.affectiveObjectives,
+            psychomotorObjectives: Array.isArray(parsed.psychomotorObjectives) ? parsed.psychomotorObjectives : smartFallback.psychomotorObjectives,
+            teachingAids: Array.isArray(parsed.teachingAids) ? parsed.teachingAids : smartFallback.teachingAids,
+            teachingStrategies: Array.isArray(parsed.teachingStrategies) ? parsed.teachingStrategies : smartFallback.teachingStrategies,
+            warmup: parsed.warmup || smartFallback.warmup,
+            presentation: parsed.presentation || smartFallback.presentation,
+            assessment: parsed.assessment || smartFallback.assessment,
+            closure: parsed.closure || smartFallback.closure,
+          });
+          showToast({
+            message: `تم توليد الخطة اليومية الذكية لموضوع (${topicToUse}) بالذكاء الاصطناعي وفق معايير وزارة التربية العراقية!`,
+            type: 'success',
+          });
+          setIsGeneratingAiPlan(false);
+          return;
+        }
+      }
+      setCurrentPlan(smartFallback);
+      showToast({
+        message: `تم توليد الخطة اليومية النموذجية لموضوع (${topicToUse}) وفق المنهج العراقي!`,
+        type: 'success',
+      });
+    } catch {
+      setCurrentPlan(smartFallback);
+      showToast({
+        message: `تم توليد الخطة اليومية النموذجية لموضوع (${topicToUse}) وفق المنهج العراقي!`,
+        type: 'success',
+      });
+    } finally {
+      setIsGeneratingAiPlan(false);
+    }
+  };
+
   const handleSelectTemplate = (tpl: DailyLessonPlan) => {
     setCurrentPlan({
       ...tpl,
       id: `lp_${Date.now()}`,
-      objectives: [...tpl.objectives],
+      division: currentPlan.division || activeDivision || 'أ',
+      objectives: [...(tpl.objectives || [])],
       cognitiveObjectives: tpl.cognitiveObjectives ? [...tpl.cognitiveObjectives] : [],
       affectiveObjectives: tpl.affectiveObjectives ? [...tpl.affectiveObjectives] : [],
       psychomotorObjectives: tpl.psychomotorObjectives ? [...tpl.psychomotorObjectives] : [],
@@ -160,28 +346,44 @@ export const LessonPlanEditor: React.FC<LessonPlanEditorProps> = ({
         <div className="flex items-center gap-3">
           <span className="text-2xl">📋</span>
           <div>
-            <h2 className="text-lg font-bold">دفتر الخطة اليومية الوزارية (خماسية التدريس)</h2>
+            <h2 className="text-base sm:text-lg font-bold">
+              مولد ودفتر الخطة الدراسية الذكي ({subjectNameAr} - الصف {teacher?.grade || 5})
+            </h2>
             <p className="text-xs text-teal-200">
-              متوافق مع المعايير الخمسة للإشراف التربوي لوزارة التربية العراقية
+              مصمم حصرياً وفق المعايير التربوية الخمسة المعتمدة في وزارة التربية العراقية
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleGenerateAiDailyPlan}
+            disabled={isGeneratingAiPlan}
+            className="min-h-[44px] px-4 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-extrabold transition shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            <span>✨</span>
+            <span>
+              {isGeneratingAiPlan
+                ? 'جارٍ توليد الخطة الوزارية...'
+                : 'توليد الخطة اليومية بالذكاء الاصطناعي'}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={handleCloneCurrent}
-            className="min-h-[44px] px-3 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-600 text-white text-xs font-bold transition flex items-center gap-1.5"
+            className="min-h-[44px] px-3 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-600 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
             title="استنساخ هذه الخطة لشعبة أخرى"
           >
             <span>📑</span>
-            <span>استنساخ الخطة</span>
+            <span>استنساخ</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsSupervisoryPrintOpen(true)}
-            className="min-h-[44px] px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition flex items-center gap-1.5"
+            className="min-h-[44px] px-3 py-1.5 rounded-xl bg-teal-950/60 hover:bg-teal-950 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
           >
             <span>🖨️</span>
             <span>معاينة إشرافية للطباعة</span>
@@ -190,10 +392,10 @@ export const LessonPlanEditor: React.FC<LessonPlanEditorProps> = ({
           <button
             type="button"
             onClick={handleSave}
-            className="min-h-[44px] px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow flex items-center gap-1.5"
+            className="min-h-[44px] px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow flex items-center gap-1.5 cursor-pointer"
           >
             <span>💾</span>
-            <span>حفظ الخطة في SQLite</span>
+            <span>حفظ الخطة</span>
           </button>
 
           {onClose && (
@@ -214,69 +416,149 @@ export const LessonPlanEditor: React.FC<LessonPlanEditorProps> = ({
         </div>
       )}
 
-      {/* 2. Metadata Bar */}
-      <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-        <div>
-          <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-            موضوع الدرس:
-          </label>
-          <input
-            type="text"
-            value={currentPlan.topic}
-            onChange={(e) => setCurrentPlan({ ...currentPlan, topic: e.target.value })}
-            className="w-full min-h-[44px] px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold text-slate-800 dark:text-slate-100"
-          />
-        </div>
+      {/* 2. Smart Curriculum Selector Bar (Req 7.1: التاريخ / الفترة الزمنية، الصف، الفصل والموضوع من منهج الاختصاص) */}
+      <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 space-y-3 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Chapter Selector from Teacher's Subject */}
+          <div>
+            <label className="block text-xs font-bold text-teal-800 dark:text-teal-300 mb-1">
+              1. الفصل من منهج ({subjectNameAr}):
+            </label>
+            <select
+              value={selectedChapterNum}
+              onChange={(e) => {
+                const num = Number(e.target.value);
+                setSelectedChapterNum(num);
+                const ch = subjectChapters.find((c) => c.chapterNumber === num);
+                if (ch && ch.topics.length > 0) {
+                  setCurrentPlan((prev) => ({
+                    ...prev,
+                    unit: `الفصل ${ch.chapterNumber}: ${ch.chapterTitle}`,
+                    topic: ch.topics[0],
+                  }));
+                }
+              }}
+              className="w-full min-h-[42px] px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100"
+            >
+              {subjectChapters.map((ch) => (
+                <option key={ch.id} value={ch.chapterNumber}>
+                  الفصل {ch.chapterNumber}: {ch.chapterTitle}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div>
-          <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-            الشعبة:
-          </label>
-          <input
-            type="text"
-            value={currentPlan.division || 'أ'}
-            onChange={(e) => setCurrentPlan({ ...currentPlan, division: e.target.value })}
-            className="w-full min-h-[44px] px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-            زمن الحصة (دقيقة):
-          </label>
-          <div className="relative">
-            <input
-              type="number"
-              min={35}
-              max={50}
-              value={currentPlan.durationMinutes}
-              onChange={(e) =>
-                setCurrentPlan({ ...currentPlan, durationMinutes: parseInt(e.target.value, 10) || 45 })
+          {/* Topic Selector from Chapter */}
+          <div>
+            <label className="block text-xs font-bold text-teal-800 dark:text-teal-300 mb-1">
+              2. الموضوع المنهجي المقرر:
+            </label>
+            <select
+              value={
+                currentChapter?.topics.includes(currentPlan.topic)
+                  ? currentPlan.topic
+                  : currentChapter?.topics[0] || ''
               }
-              className={`w-full min-h-[44px] px-3 rounded-xl border font-mono font-bold ${
-                isDurationValid
-                  ? 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
-                  : 'border-rose-500 bg-rose-50 text-rose-700'
-              }`}
-            />
-            {!isDurationValid && (
-              <span className="text-[10px] text-rose-600 absolute start-1 -bottom-4">
-                الحصة الوزارية: 35-50 دقيقة
-              </span>
-            )}
+              onChange={(e) => setCurrentPlan({ ...currentPlan, topic: e.target.value })}
+              className="w-full min-h-[42px] px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100"
+            >
+              {(currentChapter?.topics || []).map((t, idx) => (
+                <option key={idx} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date & Period Selector */}
+          <div>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+              3. التاريخ والفترة الزمنية:
+            </label>
+            <div className="flex gap-1.5">
+              <input
+                type="date"
+                value={scheduledDate}
+                onChange={(e) => setScheduledDate(e.target.value)}
+                className="flex-1 min-h-[42px] px-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-100 font-mono"
+              />
+              <select
+                value={periodLabel}
+                onChange={(e) => setPeriodLabel(e.target.value)}
+                className="min-h-[42px] px-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold"
+              >
+                <option value="الحصة الأولى">الحصة 1</option>
+                <option value="الحصة الثانية">الحصة 2</option>
+                <option value="الحصة الثالثة">الحصة 3</option>
+                <option value="الحصة الرابعة">الحصة 4</option>
+                <option value="الحصة الخامسة">الحصة 5</option>
+                <option value="الحصة السادسة">الحصة 6</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Grade, Section & Duration */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                الصف والشعبة:
+              </label>
+              <input
+                type="text"
+                value={currentPlan.division || 'أ'}
+                onChange={(e) => setCurrentPlan({ ...currentPlan, division: e.target.value })}
+                placeholder="الشعبة"
+                className="w-full min-h-[42px] px-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                الزمن (دقيقة):
+              </label>
+              <input
+                type="number"
+                min={35}
+                max={50}
+                value={currentPlan.durationMinutes}
+                onChange={(e) =>
+                  setCurrentPlan({
+                    ...currentPlan,
+                    durationMinutes: parseInt(e.target.value, 10) || 45,
+                  })
+                }
+                className={`w-full min-h-[42px] px-2.5 rounded-xl border font-mono text-xs font-bold ${
+                  isDurationValid
+                    ? 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
+                    : 'border-rose-500 bg-rose-50 text-rose-700'
+                }`}
+              />
+            </div>
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
-            تاريخ التنفيذ المجدول:
-          </label>
-          <input
-            type="date"
-            value={scheduledDate}
-            onChange={(e) => setScheduledDate(e.target.value)}
-            className="w-full min-h-[44px] px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono"
-          />
+        {/* Custom Topic Refinement Input + Quick Generate Button */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+          <div className="flex-1 flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-300 shrink-0">
+              عنوان الدرس التفصيلي:
+            </span>
+            <input
+              type="text"
+              value={currentPlan.topic}
+              onChange={(e) => setCurrentPlan({ ...currentPlan, topic: e.target.value })}
+              className="flex-1 min-h-[40px] px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-slate-100"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleGenerateAiDailyPlan}
+            disabled={isGeneratingAiPlan}
+            className="min-h-[40px] px-4 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <span>⚡</span>
+            <span>توليد عناصر الخطة الخمسة لهذا الموضوع تلقائياً</span>
+          </button>
         </div>
       </div>
 
@@ -284,20 +566,20 @@ export const LessonPlanEditor: React.FC<LessonPlanEditorProps> = ({
       {matchingTemplates.length > 0 && (
         <div className="p-3 bg-teal-50/50 dark:bg-teal-950/20 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 overflow-x-auto text-xs">
           <span className="font-bold text-teal-900 dark:text-teal-300 shrink-0">
-            نماذج المناهج المعتمدة لمادتك:
+            نماذج جاهزة لمادة ({subjectNameAr}):
           </span>
           {matchingTemplates.map((tpl) => (
             <button
               key={tpl.id}
               type="button"
               onClick={() => handleSelectTemplate(tpl)}
-              className={`px-3 py-1.5 rounded-lg border font-medium whitespace-nowrap min-h-[36px] transition ${
+              className={`px-3 py-1.5 rounded-lg border font-medium whitespace-nowrap min-h-[36px] transition cursor-pointer ${
                 currentPlan.topic === tpl.topic
                   ? 'bg-teal-700 text-white border-teal-800 font-bold'
                   : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:border-teal-500'
               }`}
             >
-              {tpl.topic} (الصف {tpl.grade})
+              {tpl.topic}
             </button>
           ))}
         </div>

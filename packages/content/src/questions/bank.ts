@@ -9,6 +9,7 @@ import type {
   QuestionBankItem,
   QuestionBankFilterOptions,
 } from '../types/index.js';
+import { normalizeSubjectFamily } from '../curriculum/subjects.js';
 
 export const QUESTION_BANK: QuestionBankItem[] = [
   // ==========================================
@@ -1200,6 +1201,315 @@ export const QUESTION_BANK: QuestionBankItem[] = [
     containsLatex: false,
     tags: ['هضم', 'كبد وبنكرياس'],
   },
+
+  // ==========================================
+  // اللغة العربية - الثالث المتوسط والسادس الإعدادي (Arabic Language)
+  // ==========================================
+  {
+    id: 'q_arab_3_001',
+    subject: 'arabic',
+    subjectId: 'arabic_intermediate',
+    grade: 3,
+    stage: 'intermediate',
+    stream: 'general',
+    chapter: 1,
+    chapterTitle: 'الميزان الصرفي وأبواب الأفعال الثلاثية',
+    topic: 'الميزان الصرفي ووزن الكلمات المجردة والمزيدة والحذف',
+    type: 'essay',
+    difficulty: 'medium',
+    text: 'زِنْ الكلمات الآتية بالميزان الصرفي مع بيان الأحرف المحذوفة إن وُجدت: (قُلْ، قِفْ، سِرْ، اسْتَغْفَرَ، جَعْفَر).',
+    modelAnswer: 'قُلْ: فُلْ (حذفت عين الفعل "و"). قِفْ: عِلْ (حذفت فاء الفعل "و"). سِرْ: فِلْ (حذفت عين الفعل "ي"). اسْتَغْفَرَ: اسْتَفْعَلَ. جَعْفَر: فَعْلَل.',
+    defaultMarks: 10,
+    isMinisterial: true,
+    sourceType: 'ministerial',
+    ministerialMeta: { year: 2023, round: 1, session: 'العراق' },
+    containsLatex: false,
+    tags: ['ميزان صرفي', 'قواعد', 'وزاري'],
+  },
+  {
+    id: 'q_arab_3_002',
+    subject: 'arabic',
+    subjectId: 'arabic_intermediate',
+    grade: 3,
+    stage: 'intermediate',
+    stream: 'general',
+    chapter: 1,
+    chapterTitle: 'الميزان الصرفي وأبواب الأفعال الثلاثية',
+    topic: 'مصادر الأفعال غير الثلاثية (الرباعية والخماسية والسداسية)',
+    type: 'essay',
+    difficulty: 'medium',
+    text: 'هاتِ مصادر الأفعال الآتية واذكر وزن كل مصدر مع بيان السبب: (أَكْرَمَ، قَاتَلَ، انْطَلَقَ، اسْتَقَامَ).',
+    modelAnswer: 'أَكْرَمَ: إكرام (إفعال - رباعي مهموز على وزن أفعل صحيح العين). قَاتَلَ: قِتال أو مُقاتَلة (فِعال / مُفاعَلة - رباعي على وزن فاعل). انْطَلَقَ: انْطِلاق (انفِعال - خماسي مبدوء بهمزة وصل). اسْتَقَامَ: اسْتِقامة (استِفالة - سداسي معتل العين بالألف).',
+    defaultMarks: 8,
+    isMinisterial: true,
+    sourceType: 'ministerial',
+    ministerialMeta: { year: 2022, round: 2 },
+    containsLatex: false,
+    tags: ['مصادر الأفعال', 'صرف', 'وزاري'],
+  },
+  {
+    id: 'q_arab_3_003',
+    subject: 'arabic',
+    subjectId: 'arabic_intermediate',
+    grade: 3,
+    stage: 'intermediate',
+    stream: 'general',
+    chapter: 2,
+    chapterTitle: 'اسم الفاعل وصيغ المبالغة والصفة المشبهة واسم المفعول',
+    topic: 'اشتقاق اسم الفاعل وشروط عمله وإعراب معموله',
+    type: 'essay',
+    difficulty: 'medium',
+    text: 'في الجملة الآتية: (أَمُنْجِزٌ أَخُوكَ وَعْدَهُ؟)، استخرج اسم الفاعل وبيّن سبب عمله وأعرب معموليه.',
+    modelAnswer: 'اسم الفاعل: مُنْجِزٌ. سبب عمله: مجرد من (أل) دال على الحال والاستقبال ومسبوق باستفهام (الهمزة). إعراب معموليه: أخوكَ: فاعل لاسم الفاعل مرفوع وعلامة رفعه الواو لأنه من الأسماء الخمسة (سدّ مسدّ الخبر). وعدَهُ: مفعول به لاسم الفاعل منصوب بالفتحة الظاهرة.',
+    defaultMarks: 10,
+    isMinisterial: true,
+    sourceType: 'ministerial',
+    ministerialMeta: { year: 2023, round: 1 },
+    containsLatex: false,
+    tags: ['اسم الفاعل', 'إعراب المعمول', 'وزاري'],
+  },
+  {
+    id: 'q_arab_3_004',
+    subject: 'arabic',
+    subjectId: 'arabic_intermediate',
+    grade: 3,
+    stage: 'intermediate',
+    stream: 'general',
+    chapter: 2,
+    chapterTitle: 'اسم الفاعل وصيغ المبالغة والصفة المشبهة واسم المفعول',
+    topic: 'صيغ المبالغة الخمس القياسية وعملها',
+    type: 'mcq',
+    difficulty: 'easy',
+    text: 'إحدى الأوزان الآتية ليست من أوزان صيغ المبالغة القياسية الخمس:',
+    options: ['فَعَّال', 'مِفْعَال', 'فَعُول', 'مَفْعُول'],
+    modelAnswer: 'مَفْعُول (وهو وزن اسم المفعول من الفعل الثلاثي).',
+    defaultMarks: 5,
+    isMinisterial: false,
+    sourceType: 'book',
+    containsLatex: false,
+    tags: ['صيغ المبالغة', 'تمرينات الكتاب'],
+  },
+  {
+    id: 'q_arab_6_001',
+    subject: 'arabic',
+    subjectId: 'arabic_preparatory',
+    grade: 6,
+    stage: 'preparatory',
+    stream: 'general',
+    chapter: 1,
+    chapterTitle: 'أسلوب الاستفهام وأسلوب النفي',
+    topic: 'الاستفهام الحقيقي والمجازي وخصائص الهمزة وهل',
+    type: 'essay',
+    difficulty: 'hard',
+    text: 'قال تعالى: ﴿أَوَلَمْ يَنظُرُوا فِي مَلَكُوتِ السَّمَاوَاتِ وَالْأَرْضِ﴾. ما خصيصة همزة الاستفهام في النص الكريم؟ وهل يجوز استبدال (هل) بها؟ ولماذا؟',
+    modelAnswer: 'خصيصة الهمزة: ١) لها الصدارة في الكلام فتقدمت على حرف العطف (الواو). ٢) دخلت على الكلام المنفي (لم ينظروا). لا يجوز استبدال (هل) بها لأن (هل) لا تدخل على الجمل المنفية.',
+    defaultMarks: 10,
+    isMinisterial: true,
+    sourceType: 'ministerial',
+    ministerialMeta: { year: 2023, round: 1, session: 'العراق' },
+    containsLatex: false,
+    tags: ['أسلوب الاستفهام', 'خصائص الهمزة', 'وزاري سادس'],
+  },
+  {
+    id: 'q_arab_6_002',
+    subject: 'arabic',
+    subjectId: 'arabic_preparatory',
+    grade: 6,
+    stage: 'preparatory',
+    stream: 'general',
+    chapter: 1,
+    chapterTitle: 'أسلوب الاستفهام وأسلوب النفي',
+    topic: 'أسلوب النفي الصريح والضمني وأدوات النفي العاملة وغير العاملة (ليس، ما، إن، لا، لم، لما، لن، لام الجحود)',
+    type: 'essay',
+    difficulty: 'medium',
+    text: 'قال الشاعر: (ولستُ بذي وجهين فيمَنْ عرفتُهُ ... ولا البخلُ فاعلمْ من سجيّتيَ الكبرى). دلّ على معمولي (ليس) ثم استبدل بها (ما) الحجازية مجرداً النفي من التوكيد.',
+    modelAnswer: 'اسم ليس: الضمير المتصل (التاء) في (لستُ). خبر ليس: (بذي) الباء حرف جر زائد للتوكيد، و(ذي) خبر ليس مجرور لفظاً منصوب محلاً وعلامة جره الياء. عند الاستبدال مع تجريد النفي من التوكيد: (وما أنا ذا وجهين).',
+    defaultMarks: 10,
+    isMinisterial: true,
+    sourceType: 'ministerial',
+    ministerialMeta: { year: 2022, round: 1 },
+    containsLatex: false,
+    tags: ['أسلوب النفي', 'ليس وما الحجازية', 'وزاري'],
+  },
+
+  // ==========================================
+  // علم الأحياء - الثالث المتوسط والسادس العلمي (Biology)
+  // ==========================================
+  {
+    id: 'q_bio_6_001',
+    subject: 'biology',
+    subjectId: 'biology_scientific',
+    grade: 6,
+    stage: 'preparatory',
+    stream: 'scientific',
+    chapter: 1,
+    chapterTitle: 'الخلية (The Cell) والانقسام الخلوي',
+    topic: 'الخلايا بدائية النواة وحقيقية النواة والعضيات الغشائية (المايتوكوندريا، البلاستيدات، جهاز كولجي، الجسيمات الحالة)',
+    type: 'essay',
+    difficulty: 'medium',
+    text: 'عرّف (الأعراف) و(الثايلاكويد) وحدد موقع ووظيفة كلٍّ منهما بدقة.',
+    modelAnswer: 'الأعراف: هي انثناءات وانطواءات تتخذ أشكالاً واتجاهات مختلفة تنشأ من الطبقة الداخلية لغشاء المايتوكوندريا وتتجه نحو القالب؛ وظيفتها: زيادة المساحة السطحية للطبقة الداخلية للمايتوكوندريا. الثايلاكويد: تركيب كيسي قرصي الشكل يتكون من الغشاء الداخلي للبلاستيدة الخضراء؛ يحتوي على يخضور وإنزيمات تساهم في إنجاز عملية البناء الضوئي.',
+    defaultMarks: 10,
+    isMinisterial: true,
+    sourceType: 'ministerial',
+    ministerialMeta: { year: 2023, round: 1, session: 'العراق' },
+    containsLatex: false,
+    tags: ['تعاريف وزارية', 'الخلية', 'المايتوكوندريا', 'البلاستيدات'],
+  },
+  {
+    id: 'q_bio_6_002',
+    subject: 'biology',
+    subjectId: 'biology_scientific',
+    grade: 6,
+    stage: 'preparatory',
+    stream: 'scientific',
+    chapter: 1,
+    chapterTitle: 'الخلية (The Cell) والانقسام الخلوي',
+    topic: 'الانقسام الخيطي غير المباشر (Mitosis) والانقسام الاختزالي الأول والثاني (Meiosis)',
+    type: 'essay',
+    difficulty: 'medium',
+    text: 'في أي طور أو دور من انقسام الخلية يحدث كلٌّ مما يأتي: ١) الإيثاق (التشابك)؟ ٢) ظهور النجم؟ ٣) التصالبات؟ ٤) اختفاء النوية والغشاء النووي؟',
+    modelAnswer: '١) الإيثاق (التشابك): الدور الازدواجي من الطور التمهيدي الأول للانقسام الاختزالي. ٢) ظهور النجم: الطور التمهيدي للانقسام الخيطي. ٣) التصالبات: الدور الانفراجي من الطور التمهيدي الأول للانقسام الاختزالي. ٤) اختفاء النوية والغشاء النووي: في نهاية الطور التمهيدي.',
+    defaultMarks: 8,
+    isMinisterial: true,
+    sourceType: 'ministerial',
+    ministerialMeta: { year: 2022, round: 1 },
+    containsLatex: false,
+    tags: ['الانقسام الخلوي', 'أطوار وأدوار', 'وزاري'],
+  },
+  {
+    id: 'q_bio_3_001',
+    subject: 'biology',
+    subjectId: 'biology_intermediate',
+    grade: 3,
+    stage: 'intermediate',
+    stream: 'general',
+    chapter: 1,
+    chapterTitle: 'تركيب الخلية والأنسجة والجهاز الهيكلي والعضلي',
+    topic: 'الجهاز الهيكلي وأقسامه (الهيكل المحوري والهيكل الطرفي) والتئام الكسور',
+    type: 'essay',
+    difficulty: 'easy',
+    text: 'علل ما يأتي: ١) وجود الوسائد الغضروفية بين الفقرات؟ ٢) تقوس أخمص القدم في الإنسان؟',
+    modelAnswer: '١) لتسهيل انحناء العمود الفقري إلى الجهات كافة ومنع احتكاك الفقرات ببعضها. ٢) لكي يسهل للإنسان عملية المشي بصورة مريحة دون تعب.',
+    defaultMarks: 10,
+    isMinisterial: true,
+    sourceType: 'ministerial',
+    ministerialMeta: { year: 2023, round: 1 },
+    containsLatex: false,
+    tags: ['تعاليل', 'الجهاز الهيكلي', 'وزاري ثالث'],
+  },
+  {
+    id: 'q_bio_3_002',
+    subject: 'biology',
+    subjectId: 'biology_intermediate',
+    grade: 3,
+    stage: 'intermediate',
+    stream: 'general',
+    chapter: 2,
+    chapterTitle: 'الجهاز الهضمي وجهاز الدوران والجهاز التنفسي',
+    topic: 'مكونات الدم والقلب والدورة الدموية الكبرى والصغرى وفصائل الدم وعامل الريسي Rh',
+    type: 'essay',
+    difficulty: 'medium',
+    text: 'قارن بين الشرايين والأوردة في جسم الإنسان (أربع نقاط).',
+    modelAnswer: 'الشرايين: ١) تنقل الدم من القلب إلى أنحاء الجسم. ٢) تنتشر في مناطق عميقة من الجسم. ٣) يكون الدم فيها قاني الحمرة لاحتوائه على الأوكسجين (عدا الشريان الرئوي). ٤) جدرانها أسمك وأكثر مرونة. الأوردة: ١) تنقل الدم من أنحاء الجسم إلى القلب. ٢) أقرب إلى سطح الجسم. ٣) لون الدم فيها أحمر قاتم (عدا الأوردة الرئوية). ٤) جدرانها أرق وتحتوي على صمامات.',
+    defaultMarks: 10,
+    isMinisterial: false,
+    sourceType: 'book',
+    containsLatex: false,
+    tags: ['مقارنات', 'جهاز الدوران', 'كتاب الأحياء'],
+  },
+
+  // ==========================================
+  // اللغة الإنكليزية - الثالث المتوسط والسادس الإعدادي (English for Iraq)
+  // ==========================================
+  {
+    id: 'q_eng_3_001',
+    subject: 'english',
+    subjectId: 'english_intermediate',
+    grade: 3,
+    stage: 'intermediate',
+    stream: 'general',
+    chapter: 1,
+    chapterTitle: 'Describing Places (There is/are), Telling the Time & Polite Description',
+    topic: 'Polite description for people, Giving reasons with (so you can / to help you)',
+    type: 'essay',
+    difficulty: 'medium',
+    text: 'Do as required between brackets:\n1) He is fat. (Make the sentence more polite: He is ________ fat).\n2) Cars have airbags. (Give a reason using: be safe in a crash).\n3) (17:10) (Tell the time).',
+    modelAnswer: '1) He is a bit fat.\n2) Cars have airbags so that you can be safe in a crash.\n3) It is five ten. (or: It is ten past five).',
+    defaultMarks: 10,
+    isMinisterial: true,
+    sourceType: 'ministerial',
+    ministerialMeta: { year: 2023, round: 1, session: 'العراق' },
+    containsLatex: false,
+    tags: ['Grammar', 'Polite Description', 'Telling Time', 'Ministerial'],
+  },
+  {
+    id: 'q_eng_3_002',
+    subject: 'english',
+    subjectId: 'english_intermediate',
+    grade: 3,
+    stage: 'intermediate',
+    stream: 'general',
+    chapter: 1,
+    chapterTitle: 'Describing Places (There is/are), Telling the Time & Polite Description',
+    topic: 'Reading Comprehension (Car of the Year - Panther 3.0D) & Writing an email describing a friend',
+    type: 'true_false',
+    difficulty: 'easy',
+    text: 'Answer or state True / False according to the textbook passage (Panther 3.0D):\n"The Panther 3.0D is actually very expensive and has seats for six people."',
+    modelAnswer: 'False (The Panther 3.0D is actually quite cheap and has seats for eight people).',
+    defaultMarks: 5,
+    isMinisterial: true,
+    sourceType: 'ministerial',
+    ministerialMeta: { year: 2022, round: 1 },
+    containsLatex: false,
+    tags: ['Textbook Passages', 'Panther 3.0D', 'Unit 1'],
+  },
+  {
+    id: 'q_eng_6_001',
+    subject: 'english',
+    subjectId: 'english_preparatory',
+    grade: 6,
+    stage: 'preparatory',
+    stream: 'general',
+    chapter: 1,
+    chapterTitle: 'Past Simple vs. Past Continuous, Phrasal Verbs, Used to & Obligations',
+    topic: 'Linking Past Simple and Past Continuous with (when / while / as / and)',
+    type: 'essay',
+    difficulty: 'medium',
+    text: 'Do as required:\n1) A thief took our clothes while we (swim). (Correct the form of the verb).\n2) Can you (turn on / the television)? (Put the verb and object in the correct order using a pronoun).\n3) She (wear) glasses, but now she (have) contact lenses. (Use the correct form of "used to" and Present Simple).',
+    modelAnswer: '1) were swimming\n2) Can you turn it on?\n3) She used to wear glasses, but now she has contact lenses.',
+    defaultMarks: 10,
+    isMinisterial: true,
+    sourceType: 'ministerial',
+    ministerialMeta: { year: 2023, round: 1, session: 'العراق' },
+    containsLatex: false,
+    tags: ['6th Preparatory', 'Grammar', 'Unit 1', 'Ministerial'],
+  },
+
+  // ==========================================
+  // الاجتماعيات - الثالث المتوسط (Social Studies)
+  // ==========================================
+  {
+    id: 'q_soc_3_001',
+    subject: 'social',
+    subjectId: 'social_intermediate',
+    grade: 3,
+    stage: 'intermediate',
+    stream: 'general',
+    chapter: 1,
+    chapterTitle: 'الخصائص الطبيعية والبشرية لجغرافية العراق وتاريخ العراق الحديث',
+    topic: 'موقع العراق الفلكي والجغرافي وأقسام سطح العراق (المنطقة الجبلية، المتموجة، السهل الرسوبي، الهضبة الغربية)',
+    type: 'essay',
+    difficulty: 'medium',
+    text: 'عرّف ما يأتي: ١) هلكرد ٢) سهل شهرزور ٣) سدة الكوت. ثم بيّن أهمية المنطقة الجبلية في العراق (ثلاث نقاط).',
+    modelAnswer: '١) هلكرد: هي أعلى قمة جبلية في العراق تقع ضمن سلسلة جبال حصاروست ويبلغ ارتفاعها (3600م) فوق مستوى سطح البحر. ٢) سهل شهرزور: من أهم السهول في المنطقة الجبلية ويقع في محافظة السليمانية. ٣) سدة الكوت: سدة أنشئت على نهر دجلة في محافظة واسط لتنظيم توزيع المياه. أهمية المنطقة الجبلية: مصدر رئيس لمياه نهر دجلة وروافده، وتشتهر بالاصطياف والغابات والزراعة الديمية.',
+    defaultMarks: 10,
+    isMinisterial: true,
+    sourceType: 'ministerial',
+    ministerialMeta: { year: 2023, round: 1, session: 'العراق' },
+    containsLatex: false,
+    tags: ['جغرافية العراق', 'تضاريس', 'وزاري'],
+  },
 ];
 
 // ==========================================
@@ -1214,10 +1524,15 @@ export function filterQuestions(
   bank: QuestionBankItem[],
   options: QuestionBankFilterOptions
 ): QuestionBankItem[] {
-  return bank.filter((q) => {
+  if (!Array.isArray(bank)) return [];
+
+  const filteredBySubjectAndMeta = bank.filter((q) => {
     if (options.subject) {
+      const targetFamily = normalizeSubjectFamily(options.subject);
+      const qFamily = normalizeSubjectFamily(q.subjectId || q.subject);
       const s = options.subject.toLowerCase().trim();
       const matchSubject =
+        qFamily === targetFamily ||
         q.subject.toLowerCase() === s ||
         (q.subjectId && q.subjectId.toLowerCase().includes(s)) ||
         s.includes(q.subject.toLowerCase());
@@ -1240,6 +1555,14 @@ export function filterQuestions(
       return false;
     }
 
+    if (options.topic && options.topic.trim()) {
+      const topicTerm = options.topic.toLowerCase().trim();
+      const matchesTopic =
+        q.topic.toLowerCase().includes(topicTerm) ||
+        topicTerm.includes(q.topic.toLowerCase());
+      if (!matchesTopic) return false;
+    }
+
     if (options.type && q.type !== options.type) {
       return false;
     }
@@ -1250,6 +1573,11 @@ export function filterQuestions(
 
     if (options.isMinisterial !== undefined && q.isMinisterial !== options.isMinisterial) {
       return false;
+    }
+
+    if (options.sourceType) {
+      const wantMinisterial = options.sourceType === 'ministerial';
+      if (q.isMinisterial !== wantMinisterial) return false;
     }
 
     if (options.searchTerm) {
@@ -1271,6 +1599,8 @@ export function filterQuestions(
 
     return true;
   });
+
+  return filteredBySubjectAndMeta;
 }
 
 export function getMinisterialQuestions(

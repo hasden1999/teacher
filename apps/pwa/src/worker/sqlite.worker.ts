@@ -293,7 +293,13 @@ export async function handleWorkerRequest(
           }
 
           if (mutationCount > 0 && backupEngine) {
-            await backupEngine.recordMutation(mutationCount);
+            let exportData: Uint8Array | undefined;
+            if (sqlite3?.capi && db?.pointer) {
+              try {
+                exportData = sqlite3.capi.sqlite3_js_db_export(db.pointer);
+              } catch {}
+            }
+            await backupEngine.recordMutation(mutationCount, exportData);
           }
           return { id: req.id, success: true, data: { rowsAffected: totalChanges } };
         } catch (txErr: any) {

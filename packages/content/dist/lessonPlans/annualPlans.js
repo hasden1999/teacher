@@ -2,6 +2,42 @@
  * @techeeer/content - Annual Lesson Plans & Verification Helpers
  * Supports 32-week distribution aligned with Iraqi MoE academic calendar.
  */
+import { getChaptersBySubject } from '../curriculum/chapters.js';
+import { normalizeSubjectFamily, getSubjectById } from '../curriculum/subjects.js';
+export const IRAQI_ACADEMIC_MONTHS = {
+    1: 'تشرين الأول (الأسبوع ١)',
+    2: 'تشرين الأول (الأسبوع ٢)',
+    3: 'تشرين الأول (الأسبوع ٣)',
+    4: 'تشرين الأول (الأسبوع ٤)',
+    5: 'تشرين الثاني (الأسبوع ١)',
+    6: 'تشرين الثاني (الأسبوع ٢)',
+    7: 'تشرين الثاني (الأسبوع ٣)',
+    8: 'تشرين الثاني (الأسبوع ٤)',
+    9: 'كانون الأول (الأسبوع ١)',
+    10: 'كانون الأول (الأسبوع ٢)',
+    11: 'كانون الأول (الأسبوع ٣)',
+    12: 'كانون الأول (الأسبوع ٤)',
+    13: 'كانون الثاني (الأسبوع ١)',
+    14: 'كانون الثاني (الأسبوع ٢)',
+    15: 'كانون الثاني (الأسبوع ٣)',
+    16: 'كانون الثاني (نصف السنة)',
+    17: 'شباط (الأسبوع ١ - الفصل الثاني)',
+    18: 'شباط (الأسبوع ٢)',
+    19: 'شباط (الأسبوع ٣)',
+    20: 'شباط (الأسبوع ٤)',
+    21: 'آذار (الأسبوع ١)',
+    22: 'آذار (الأسبوع ٢)',
+    23: 'آذار (الأسبوع ٣)',
+    24: 'آذار (الأسبوع ٤)',
+    25: 'نيسان (الأسبوع ١)',
+    26: 'نيسان (الأسبوع ٢)',
+    27: 'نيسان (الأسبوع ٣)',
+    28: 'نيسان (الأسبوع ٤)',
+    29: 'أيار (مراجعة وزارية ١)',
+    30: 'أيار (مراجعة وزارية ٢)',
+    31: 'أيار (مراجعة شاملة)',
+    32: 'أيار (امتحانات نهاية السنة)',
+};
 /**
  * Validates lesson plan class duration within standard Iraqi period limits (35 to 50 minutes).
  */
@@ -15,16 +51,17 @@ export function isValidAnnualWeek(week) {
     return week >= 1 && week <= 32;
 }
 /**
- * Generates an annual lesson plan distribution across exactly 32 teaching weeks.
- * Weeks 1-16: Semester 1 (Autumn term + midterm reviews)
- * Weeks 17-32: Semester 2 (Spring term + final reviews)
+ * Generates an annual lesson plan distribution across 32 teaching weeks (8 academic months)
+ * strictly grounded in the teacher's Iraqi curriculum chapters and topics.
  */
 export function createAnnualPlan(subjectId, grade, options = {}) {
+    const safeSubjectId = subjectId || 'science';
+    const safeGrade = grade || 5;
     const semesterSplit = options.semesterSplit ?? 16;
-    const periodsPerWeek = options.periodsPerWeek ?? 4;
-    const isIslamic = subjectId.toLowerCase().includes('islamic') ||
-        subjectId.includes('إسلامية') ||
-        subjectId.includes('اسلامية');
+    const subDef = getSubjectById(safeSubjectId);
+    const periodsPerWeek = options.periodsPerWeek ?? subDef?.weeklyPeriods ?? 4;
+    const family = normalizeSubjectFamily(safeSubjectId);
+    const isIslamic = family === 'islamic';
     // Authentic Iraqi Islamic Education 32-Week Curriculum Syllabus Distribution
     const ISLAMIC_WEEK_TOPICS = {
         1: { unit: 'الوحدة الأولى: القرآن الكريم وأحكام التلاوة', chapter: 'أحكام التلاوة', topics: ['أحكام لام (ال) التعريف (الإظهار القمري والإدغام الشمسي) وقواعد النطق'] },
@@ -60,38 +97,136 @@ export function createAnnualPlan(subjectId, grade, options = {}) {
         31: { unit: 'المراجعة الوزارية النهائية', chapter: 'مراجعة السيرة والتهذيب', topics: ['مراجعة محاور السيرة النبوية والأخلاق ونماذج الأسئلة الوزارية الشاملة'] },
         32: { unit: 'امتحانات نهاية السنة', chapter: 'التقويم النهائي', topics: ['مراجعة نهائية وامتحانات نهاية السنة الدراسية'] },
     };
+    // Build syllabus sequence from official chapters for this subject
+    const subjectChapters = getChaptersBySubject(safeSubjectId, safeGrade);
+    const syllabusPool = [];
+    for (const ch of subjectChapters) {
+        for (const t of ch.topics) {
+            syllabusPool.push({
+                unit: `الوحدة ${ch.unitNumber}: ${ch.unitTitle}`,
+                chapter: `الفصل ${ch.chapterNumber}: ${ch.chapterTitle}`,
+                topic: t,
+            });
+        }
+        syllabusPool.push({
+            unit: `الوحدة ${ch.unitNumber}: ${ch.unitTitle}`,
+            chapter: `الفصل ${ch.chapterNumber}: ${ch.chapterTitle}`,
+            topic: `حل أسئلة ومناقشة وتمارين ${ch.chapterTitle} وتطبيقات تقويمية`,
+        });
+    }
+    const subjectNameAr = subDef?.nameAr || subjectChapters[0]?.subjectNameAr || safeSubjectId;
     return Array.from({ length: 32 }, (_, i) => {
         const week = i + 1;
         const semester = week <= semesterSplit ? 1 : 2;
+        const monthNameAr = IRAQI_ACADEMIC_MONTHS[week] || `الأسبوع ${week}`;
+        const unitIndex = Math.floor(i / 4) + 1;
+        const canonicalUnit = `الوحدة ${unitIndex}`;
         if (isIslamic && ISLAMIC_WEEK_TOPICS[week]) {
             const info = ISLAMIC_WEEK_TOPICS[week];
             return {
                 week,
                 weekNumber: week,
                 semester,
+                monthNameAr,
                 unit: info.unit,
                 chapterTitle: info.chapter,
                 topics: info.topics,
                 periodsPerWeek,
             };
         }
-        const unitIndex = Math.floor(i / 4) + 1;
-        const topics = [
-            `موضوعات الأسبوع ${week} - المادة ${subjectId} (الصف ${grade})`,
-        ];
-        if (week === 16) {
-            topics.push('مراجعة شاملة وامتحانات نصف السنة الدراسية');
+        if (week === 8) {
+            return {
+                week,
+                weekNumber: week,
+                semester,
+                monthNameAr,
+                unit: canonicalUnit,
+                chapterTitle: 'مراجعة واختبار الشهر الأول للفصل الأول (تشرين الثاني)',
+                topics: [`مراجعة مفردات الشهر الأول لمادة ${subjectNameAr} وإجراء امتحان الشهر الأول التحريري`],
+                periodsPerWeek,
+            };
         }
-        else if (week === 32) {
-            topics.push('مراجعة نهائية وامتحانات نهاية السنة الدراسية');
+        if (week === 15) {
+            return {
+                week,
+                weekNumber: week,
+                semester,
+                monthNameAr,
+                unit: canonicalUnit,
+                chapterTitle: 'مراجعة شاملة لمفردات الفصل الدراسي الأول (كانون الثاني)',
+                topics: [`مراجعة مركزة وحل نماذج أسئلة امتحانية لمادة ${subjectNameAr}`],
+                periodsPerWeek,
+            };
+        }
+        if (week === 16) {
+            return {
+                week,
+                weekNumber: week,
+                semester,
+                monthNameAr,
+                unit: canonicalUnit,
+                chapterTitle: 'امتحانات نصف السنة الدراسية والتقويم النصف سنوي',
+                topics: ['مراجعة شاملة وامتحانات نصف السنة الدراسية والعطلة الربيعية'],
+                periodsPerWeek,
+            };
+        }
+        if (week === 24) {
+            return {
+                week,
+                weekNumber: week,
+                semester,
+                monthNameAr,
+                unit: canonicalUnit,
+                chapterTitle: 'مراجعة واختبار الشهر الأول للفصل الثاني (آذار)',
+                topics: [`حل تطبيقات شاملة وامتحان الشهر الأول للفصل الدراسي الثاني في ${subjectNameAr}`],
+                periodsPerWeek,
+            };
+        }
+        if (week >= 29 && week <= 31) {
+            return {
+                week,
+                weekNumber: week,
+                semester,
+                monthNameAr,
+                unit: canonicalUnit,
+                chapterTitle: `مراجعة فصول ${subjectNameAr} وحل الأسئلة الوزارية (أيار)`,
+                topics: [`مراجعة مركزة لفصول المنهج المقرر وحل نماذج الأسئلة الوزارية المعتمدة لمادة ${subjectNameAr}`],
+                periodsPerWeek,
+            };
+        }
+        if (week === 32) {
+            return {
+                week,
+                weekNumber: week,
+                semester,
+                monthNameAr,
+                unit: canonicalUnit,
+                chapterTitle: 'امتحانات نهاية السنة الدراسية والتقويم النهائي العام',
+                topics: ['مراجعة نهائية وامتحانات نهاية السنة الدراسية'],
+                periodsPerWeek,
+            };
+        }
+        if (syllabusPool.length > 0) {
+            const poolItem = syllabusPool[i % syllabusPool.length];
+            return {
+                week,
+                weekNumber: week,
+                semester,
+                monthNameAr,
+                unit: canonicalUnit,
+                chapterTitle: poolItem.chapter,
+                topics: [poolItem.topic],
+                periodsPerWeek,
+            };
         }
         return {
             week,
             weekNumber: week,
             semester,
+            monthNameAr,
             unit: `الوحدة ${unitIndex}`,
             chapterTitle: `الفصل التعليمي ${Math.floor(i / 2) + 1}`,
-            topics,
+            topics: [`مفردات الأسبوع ${week} - مادة ${subjectNameAr} (الصف ${safeGrade})`],
             periodsPerWeek,
         };
     });
@@ -103,22 +238,22 @@ export function createAnnualPlan(subjectId, grade, options = {}) {
 export function cloneLessonPlan(original, targetDivision) {
     const uniqueSuffix = Math.random().toString(36).substring(2, 7);
     const newId = `${original.id}_clone_${uniqueSuffix}`;
-    // Check if topic already ends with (N), increment or append (2)
-    let updatedTopic = original.topic;
-    const match = original.topic.match(/\((\d+)\)$/);
+    const safeTopic = original.topic || 'خطة درس يومية';
+    let updatedTopic = safeTopic;
+    const match = safeTopic.match(/\((\d+)\)$/);
     if (match) {
         const currentNum = parseInt(match[1], 10);
-        updatedTopic = original.topic.replace(/\(\d+\)$/, `(${currentNum + 1})`);
+        updatedTopic = safeTopic.replace(/\(\d+\)$/, `(${currentNum + 1})`);
     }
     else {
-        updatedTopic = `${original.topic} (2)`;
+        updatedTopic = `${safeTopic} (2)`;
     }
     return {
         ...original,
         id: newId,
         topic: updatedTopic,
-        division: targetDivision ?? original.division,
-        objectives: [...original.objectives],
+        division: targetDivision ?? original.division ?? 'أ',
+        objectives: Array.isArray(original.objectives) ? [...original.objectives] : [],
         cognitiveObjectives: original.cognitiveObjectives ? [...original.cognitiveObjectives] : undefined,
         affectiveObjectives: original.affectiveObjectives ? [...original.affectiveObjectives] : undefined,
         psychomotorObjectives: original.psychomotorObjectives ? [...original.psychomotorObjectives] : undefined,
@@ -130,33 +265,48 @@ export function cloneLessonPlan(original, targetDivision) {
  * Calculates lesson plan syllabus progress percentage.
  */
 export function calculateLessonProgress(lessons) {
-    const totalCount = lessons.length;
+    const safeLessons = Array.isArray(lessons) ? lessons : [];
+    const totalCount = safeLessons.length;
     if (totalCount === 0) {
         return { completedCount: 0, totalCount: 0, percentage: 0 };
     }
-    const completedCount = lessons.filter((l) => l.status === 'completed').length;
+    const completedCount = safeLessons.filter((l) => l.status === 'completed').length;
     const percentage = Math.round((completedCount / totalCount) * 100);
     return { completedCount, totalCount, percentage };
 }
 /**
  * Filters curriculum items strictly matching the teacher's registered subject specialization and grade.
+ * Safely handles subject aliases (e.g. 'mathematics' <-> 'math', 'islamic_education' <-> 'islamic').
  */
 export function filterCurriculumForTeacher(teacher, items) {
-    const allowedSubjects = [
-        teacher.subject.toLowerCase().trim(),
-        ...(teacher.secondarySubjects || []).map((s) => s.toLowerCase().trim()),
+    if (!Array.isArray(items) || items.length === 0)
+        return [];
+    if (!teacher || !teacher.subject)
+        return items;
+    const primaryFamily = normalizeSubjectFamily(teacher.subject);
+    const allowedFamilies = [
+        primaryFamily,
+        ...(teacher.secondarySubjects || []).map((s) => normalizeSubjectFamily(s)),
     ];
-    return items.filter((item) => {
-        // Check subject
-        const itemSubject = (item.subject || item.subjectId || '').toLowerCase().trim();
-        const subjectMatches = allowedSubjects.some((sub) => itemSubject === sub || itemSubject.includes(sub) || sub.includes(itemSubject));
-        if (!subjectMatches)
+    const allowedRaw = [
+        teacher.subject.toLowerCase().trim(),
+        ...(teacher.secondarySubjects || []).map((s) => (s || '').toLowerCase().trim()),
+    ].filter(Boolean);
+    const subjectMatched = items.filter((item) => {
+        const rawItemSub = (item.subject || item.subjectId || '').toLowerCase().trim();
+        if (!rawItemSub)
             return false;
-        // Check grade if specified
-        if (item.grade !== undefined && item.grade !== teacher.grade) {
-            return false;
-        }
-        return true;
+        const itemFamily = normalizeSubjectFamily(rawItemSub);
+        if (allowedFamilies.includes(itemFamily))
+            return true;
+        return allowedRaw.some((sub) => rawItemSub === sub || rawItemSub.includes(sub) || sub.includes(rawItemSub));
     });
+    if (teacher.grade !== undefined) {
+        const exactGradeMatches = subjectMatched.filter((item) => item.grade === undefined || item.grade === teacher.grade);
+        if (exactGradeMatches.length > 0) {
+            return exactGradeMatches;
+        }
+    }
+    return subjectMatched;
 }
 //# sourceMappingURL=annualPlans.js.map

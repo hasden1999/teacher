@@ -174,16 +174,44 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 15mm;
+    margin: 10mm;
   }
 
+  html,
   body {
     background-color: white !important;
     color: black !important;
     font-family: 'Amiri', serif !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
   }
 
   .no-print {
     display: none !important;
+  }
+
+  #exam-print-sheet {
+    min-height: 0 !important;
+    height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 4mm !important;
+    box-shadow: none !important;
+    justify-content: flex-start !important;
+  }
+
+  #exam-print-sheet article {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  #exam-print-sheet img {
+    max-width: 100% !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 }
