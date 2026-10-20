@@ -170,7 +170,7 @@ export const StudentRosterOcrModal: React.FC<StudentRosterOcrModalProps> = ({
   {"rollNumber": 2, "fullName": "اسم الطالبة الثلاثي", "gender": "female"}
 ]`;
 
-      const modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest'];
+      const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro'];
       let candidateJson = '';
 
       for (const model of modelsToTry) {

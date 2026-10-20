@@ -36,11 +36,12 @@ export function normalizeMathExpressions(input: string): string {
       }
 
       let normalized = part;
-      // Normalize Unicode cube/fourth roots and square roots: ∛(x) -> $\sqrt[3]{x}$, √(x+1) -> $\sqrt{x+1}$, √25 -> $\sqrt{25}$
+      // Normalize Unicode cube/fourth roots and square roots for both English and Arabic variables/numbers
+      // e.g., ∛(x) -> $\sqrt[3]{x}$, ∛27 -> $\sqrt[3]{27}$, √(س) -> $\sqrt{س}$, √25 -> $\sqrt{25}$, √س -> $\sqrt{س}$
       normalized = normalized.replace(/∛\s*\(([^)]+)\)/g, '$\\sqrt[3]{$1}$');
-      normalized = normalized.replace(/∛\s*([a-zA-Z0-9\u0660-\u0669]+(?:\^[0-9]+)?)/g, '$\\sqrt[3]{$1}$');
+      normalized = normalized.replace(/∛\s*([a-zA-Z0-9\u0600-\u06FF]+(?:\^[0-9]+)?)/g, '$\\sqrt[3]{$1}$');
       normalized = normalized.replace(/√\s*\(([^)]+)\)/g, '$\\sqrt{$1}$');
-      normalized = normalized.replace(/√\s*([a-zA-Z0-9\u0660-\u0669]+(?:\^[0-9]+)?)/g, '$\\sqrt{$1}$');
+      normalized = normalized.replace(/√\s*([a-zA-Z0-9\u0600-\u06FF]+(?:\^[0-9]+)?)/g, '$\\sqrt{$1}$');
 
       // Normalize bare \sqrt[n]{...} or \sqrt{...} or \frac{...}{...} not wrapped in $
       normalized = normalized.replace(
@@ -122,13 +123,16 @@ function tokenizeMixedText(rawInput: string): TextToken[] {
       const closingIdx = raw.indexOf('$', cursor + 1);
       if (closingIdx !== -1) {
         const potentialFormula = raw.slice(cursor + 1, closingIdx);
+        const trimmedFormula = potentialFormula.trim();
         const hasNewline = potentialFormula.includes('\n');
-        const hasArabicChars = /[\u0600-\u06FF]/.test(potentialFormula);
-        const hasMathIndicators = /[\\^_=+\-*/<>0-9{}()]/.test(potentialFormula);
-        // Allow Arabic inside math if it has math symbols/LaTeX commands (e.g., \sqrt{س} or \text{سم})
-        const isPureArabicProse = hasArabicChars && !hasMathIndicators;
-        if (!hasNewline && !isPureArabicProse && potentialFormula.trim().length > 0) {
-          tokens.push({ type: 'inline-math', content: potentialFormula.trim() });
+        const hasArabicChars = /[\u0600-\u06FF]/.test(trimmedFormula);
+        const hasMathIndicators = /[\\^_=+\-*/<>0-9{}()[\]≠≈≤≥·×÷]/.test(trimmedFormula);
+        // In Iraqi curriculum, single Arabic letters (س, ص, ع, ل, ن, ط) are mathematical variables!
+        const isArabicMathVariable = /^[سصعلدنطكمهـxyzXYZ](\s*[+\-*/=<>≤≥]\s*.*)?$/.test(trimmedFormula) || trimmedFormula.length <= 2;
+        // Pure Arabic prose is multiple Arabic words without any math operators or LaTeX commands
+        const isPureArabicProse = hasArabicChars && !hasMathIndicators && !isArabicMathVariable && trimmedFormula.split(/\s+/).length >= 2;
+        if (!hasNewline && !isPureArabicProse && trimmedFormula.length > 0) {
+          tokens.push({ type: 'inline-math', content: trimmedFormula });
           cursor = closingIdx + 1;
           continue;
         }

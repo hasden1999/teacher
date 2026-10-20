@@ -1,7 +1,11 @@
 import { MathSymbolItem } from '../../types/math.js';
 
 export const IRAQI_MATH_SYMBOLS: MathSymbolItem[] = [
-  // 1. Basic Math (أساسيات العمليات)
+  // 1. Basic Math (أساسيات العمليات ومتغيرات المنهج العراقي)
+  { id: 'var_seen', label: 'س', latex: 'س', category: 'basic', ariaLabel: 'المتغير سين' },
+  { id: 'var_sad', label: 'ص', latex: 'ص', category: 'basic', ariaLabel: 'المتغير صاد' },
+  { id: 'var_ayn', label: 'ع', latex: 'ع', category: 'basic', ariaLabel: 'المتغير عين' },
+  { id: 'sqrt_seen', label: '√س', latex: '\\sqrt{س}', category: 'basic', ariaLabel: 'جذر سين' },
   { id: 'frac', label: 'a/b', latex: '\\frac{a}{b}', category: 'basic', ariaLabel: 'كسر اعتيادي' },
   { id: 'sqrt', label: '√x', latex: '\\sqrt{x}', category: 'basic', ariaLabel: 'جذر تربيعي' },
   { id: 'sqrt_empty', label: '√{}', latex: '\\sqrt{}', category: 'basic', ariaLabel: 'جذر فارغ' },

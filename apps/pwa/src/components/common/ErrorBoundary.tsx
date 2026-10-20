@@ -42,6 +42,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   private handleReload = (): void => {
+    try {
+      localStorage.removeItem('techeeer_exam_draft_ast');
+    } catch {}
     window.location.reload();
   };
 

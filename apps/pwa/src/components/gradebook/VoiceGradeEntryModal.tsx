@@ -304,7 +304,7 @@ ${JSON.stringify(studentsRosterSummary, null, 2)}
 
       setAiStatusMessage('الذكاء الاصطناعي يستمع للصوت ويطابق أسماء الطلاب والدرجات...');
 
-      const modelsToTry = ['gemini-2.5-flash', 'gemini-flash-latest'];
+      const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro'];
       let parsedArray: any[] | null = null;
       let lastErrorStatus = 0;
 

@@ -303,11 +303,12 @@ export const ExamPrintView = forwardRef<HTMLDivElement, ExamPrintViewProps>(({
           {/* Questions Container (supports 1 or 2 columns, compact vertical rhythm) */}
           <main className={isTwoCols ? 'columns-2 gap-6 space-y-2' : 'space-y-2'}>
             {questions.map((q, qIdx) => {
-              const qMarksStr = q.marks ? `(${q.marks} درجة)` : '';
-              const qLabel = q.headerLabel || `س${q.questionNumber}`;
+              const qBranches = Array.isArray(q?.branches) ? q.branches : (Array.isArray(q?.subItems) ? q.subItems : []);
+              const qMarksStr = q?.marks ? `(${q.marks} درجة)` : '';
+              const qLabel = q?.headerLabel || `س${q?.questionNumber || qIdx + 1}`;
               const instrText =
-                q.instruction ||
-                (q.header && q.header !== qLabel
+                q?.instruction ||
+                (typeof q?.header === 'string' && q.header !== qLabel
                   ? q.header.replace(/^س(?:ؤال)?\s*[0-9٠-٩]+[:/\-.)\]]?\s*/, '').trim()
                   : '');
               const isEditingThisQuestion =
@@ -374,9 +375,9 @@ export const ExamPrintView = forwardRef<HTMLDivElement, ExamPrintViewProps>(({
                   )}
 
                   {/* Branches */}
-                  {q.branches && q.branches.length > 0 && (
+                  {qBranches.length > 0 && (
                     <div className="space-y-1 ps-2.5">
-                      {q.branches.map((b, bIdx) => {
+                      {qBranches.map((b, bIdx) => {
                         const bMarksStr = b.marks ? `(${b.marks} درجة)` : '';
                         const bLabel = b.label || 'أ';
                         const prefix = [
@@ -401,7 +402,7 @@ export const ExamPrintView = forwardRef<HTMLDivElement, ExamPrintViewProps>(({
 
                         return (
                           <div
-                            key={b.id || bIdx}
+                            key={(b as any).id || bIdx}
                             className="flex items-baseline justify-between gap-2 text-xs sm:text-sm leading-snug"
                           >
                             <div className="flex items-baseline gap-1.5 flex-1">

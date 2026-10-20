@@ -159,6 +159,70 @@ export function formatFormalExamText(text: string): string {
   return res.trim();
 }
 
+/**
+ * Ensures complete structural integrity of ExamPaperAST, protecting against corrupted
+ * localStorage drafts or partial objects where branches or text fields might be undefined.
+ */
+export function sanitizeAST(astCandidate: any, fallbackSubject?: string, fallbackGrade?: string): ExamPaperAST {
+  if (!astCandidate || typeof astCandidate !== 'object') {
+    return {
+      header: {
+        country: 'جمهورية العراق',
+        ministry: 'وزارة التربية',
+        subject: fallbackSubject || 'العلوم',
+        grade: fallbackGrade || 'الصف 5',
+      },
+      questions: [],
+      rawText: '',
+    };
+  }
+
+  const rawQuestions = Array.isArray(astCandidate.questions) ? astCandidate.questions : [];
+  const safeQuestions: ExamQuestionAST[] = rawQuestions.map((q: any, idx: number) => {
+    const qNum = typeof q?.questionNumber === 'number' ? q.questionNumber : idx + 1;
+    const rawBranches = Array.isArray(q?.branches) ? q.branches : (Array.isArray(q?.subItems) ? q.subItems : []);
+    const safeBranches: ExamBranchAST[] = rawBranches.map((b: any, bIdx: number) => {
+      const defaultLabel = ['أ', 'ب', 'ج', 'د', 'هـ'][bIdx] || `${bIdx + 1}`;
+      return {
+        id: b?.id ? String(b.id) : `br_${qNum}_${bIdx}_${Date.now()}`,
+        label: b?.label ? String(b.label) : defaultLabel,
+        text: b?.text !== undefined && b?.text !== null ? String(b.text) : '',
+        marks: typeof b?.marks === 'number' ? b.marks : undefined,
+      };
+    });
+
+    return {
+      id: q?.id ? String(q.id) : `q_${qNum}_${Date.now()}`,
+      questionNumber: qNum,
+      headerLabel: q?.headerLabel ? String(q.headerLabel) : `س${qNum}`,
+      header: q?.header ? String(q.header) : `س${qNum}:`,
+      type: q?.type || 'GENERAL',
+      instruction: q?.instruction ? String(q.instruction) : '',
+      mainText: q?.mainText ? String(q.mainText) : undefined,
+      branches: safeBranches,
+      subItems: safeBranches.map((b) => ({ label: b.label, text: b.text, marks: b.marks })),
+      marks: typeof q?.marks === 'number' ? q.marks : 20,
+    };
+  });
+
+  return {
+    header: {
+      country: astCandidate.header?.country || 'جمهورية العراق',
+      ministry: astCandidate.header?.ministry || 'وزارة التربية',
+      directorate: astCandidate.header?.directorate || '',
+      schoolName: astCandidate.header?.schoolName || '',
+      examTitle: astCandidate.header?.examTitle || 'امتحانات نصف السنة',
+      academicYear: astCandidate.header?.academicYear || '2026 - 2027',
+      subject: fallbackSubject || astCandidate.header?.subject || '',
+      grade: fallbackGrade || astCandidate.header?.grade || '',
+      timeAllowed: astCandidate.header?.timeAllowed || 'ساعتان',
+      generalNote: astCandidate.header?.generalNote || '',
+    },
+    questions: safeQuestions,
+    rawText: typeof astCandidate.rawText === 'string' ? astCandidate.rawText : '',
+  };
+}
+
 export const ExamEditor: React.FC<ExamEditorProps> = ({
   initialText,
   initialAST,
@@ -175,40 +239,39 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
     [teacherSubject, teacherGrade, teacherDivision]
   );
 
-  // Initialize AST state with safe validation against corrupted localStorage
+  const fallbackGradeStr = teacherDivision
+    ? `الصف ${teacherGrade} (شعبة ${teacherDivision})`
+    : `الصف ${teacherGrade}`;
+
+  // Initialize AST state with safe validation and sanitization against corrupted localStorage
   const [ast, setAst] = useState<ExamPaperAST>(() => {
-    if (initialAST && initialAST.header && Array.isArray(initialAST.questions)) return initialAST;
+    if (initialAST && initialAST.header && Array.isArray(initialAST.questions)) {
+      return sanitizeAST(initialAST, teacherSubject, fallbackGradeStr);
+    }
     if (typeof localStorage !== 'undefined') {
       const saved = localStorage.getItem('techeeer_exam_draft_ast');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
           if (parsed && typeof parsed === 'object' && parsed.header && Array.isArray(parsed.questions)) {
-            return {
-              ...parsed,
-              header: {
-                ...parsed.header,
-                subject: teacherSubject || parsed.header.subject,
-                grade: teacherDivision ? `الصف ${teacherGrade} (${teacherDivision})` : `الصف ${teacherGrade}`,
-              },
-            };
+            return sanitizeAST(parsed, teacherSubject || parsed.header?.subject, fallbackGradeStr);
           }
         } catch {}
       }
     }
-    return parseExamPaperAST(initialText || defaultRawTextForSubject);
+    return sanitizeAST(parseExamPaperAST(initialText || defaultRawTextForSubject), teacherSubject, fallbackGradeStr);
   });
 
   const [rawText, setRawText] = useState<string>(() => {
     if (initialText) return initialText;
-    if (initialAST) return serializeExamPaperAST(initialAST);
+    if (initialAST) return serializeExamPaperAST(sanitizeAST(initialAST, teacherSubject, fallbackGradeStr));
     if (typeof localStorage !== 'undefined') {
       const savedAst = localStorage.getItem('techeeer_exam_draft_ast');
       if (savedAst) {
         try {
           const parsed = JSON.parse(savedAst);
           if (parsed && typeof parsed === 'object' && parsed.header && Array.isArray(parsed.questions)) {
-            return serializeExamPaperAST(parsed);
+            return serializeExamPaperAST(sanitizeAST(parsed, teacherSubject, fallbackGradeStr));
           }
         } catch {}
       }
@@ -222,17 +285,18 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
       ? `الصف ${teacherGrade} (شعبة ${teacherDivision})`
       : `الصف ${teacherGrade}`;
     setAst((prev) => {
-      if (prev.header.subject === teacherSubject && prev.header.grade === targetGradeStr) {
-        return prev;
+      const safePrev = sanitizeAST(prev, teacherSubject, targetGradeStr);
+      if (safePrev.header.subject === teacherSubject && safePrev.header.grade === targetGradeStr) {
+        return safePrev;
       }
-      const next = {
-        ...prev,
+      const next = sanitizeAST({
+        ...safePrev,
         header: {
-          ...prev.header,
+          ...safePrev.header,
           subject: teacherSubject,
           grade: targetGradeStr,
         },
-      };
+      }, teacherSubject, targetGradeStr);
       setRawText(serializeExamPaperAST(next));
       return next;
     });
@@ -311,20 +375,23 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
 
   // Format a specific question and its branches into official ministerial Arabic style
   const formatQuestion = (qIndex: number) => {
-    updateQuestion(qIndex, q => ({
-      ...q,
-      instruction: formatFormalExamText(q.instruction || ''),
-      header: `${q.headerLabel || `س${q.questionNumber}`}: ${formatFormalExamText(q.instruction || '')}`.trim(),
-      branches: q.branches.map(b => ({
-        ...b,
-        text: formatFormalExamText(b.text || ''),
-      })),
-      subItems: q.branches.map(b => ({
-        label: b.label,
-        text: formatFormalExamText(b.text || ''),
-        marks: b.marks,
-      })),
-    }));
+    updateQuestion(qIndex, q => {
+      const branches = Array.isArray(q.branches) ? q.branches : [];
+      return {
+        ...q,
+        instruction: formatFormalExamText(q.instruction || ''),
+        header: `${q.headerLabel || `س${q.questionNumber}`}: ${formatFormalExamText(q.instruction || '')}`.trim(),
+        branches: branches.map(b => ({
+          ...b,
+          text: formatFormalExamText(b.text || ''),
+        })),
+        subItems: branches.map(b => ({
+          label: b.label || 'أ',
+          text: formatFormalExamText(b.text || ''),
+          marks: b.marks,
+        })),
+      };
+    });
   };
 
   // Add a new question
@@ -472,19 +539,20 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
   // Add Branch to a Question
   const handleAddBranch = (qIndex: number) => {
     updateQuestion(qIndex, q => {
+      const branches = Array.isArray(q.branches) ? q.branches : [];
       const branchLabels = ['أ', 'ب', 'ج', 'د', 'هـ'];
-      const nextLabel = branchLabels[q.branches.length] || `فرع ${q.branches.length + 1}`;
+      const nextLabel = branchLabels[branches.length] || `فرع ${branches.length + 1}`;
       const newBranch: ExamBranchAST = {
         id: `br_${q.questionNumber}_${nextLabel}_${Date.now()}`,
         label: nextLabel,
         text: 'نص الفرع الجديد...',
         marks: 10,
       };
-      const branches = [...q.branches, newBranch];
+      const nextBranches = [...branches, newBranch];
       return {
         ...q,
-        branches,
-        subItems: branches.map(b => ({ label: b.label, text: b.text, marks: b.marks })),
+        branches: nextBranches,
+        subItems: nextBranches.map(b => ({ label: b.label, text: b.text, marks: b.marks })),
       };
     });
   };
@@ -492,7 +560,7 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
   // Delete Branch
   const handleDeleteBranch = (qIndex: number, bIndex: number) => {
     updateQuestion(qIndex, q => {
-      const branches = q.branches.filter((_, i) => i !== bIndex);
+      const branches = (Array.isArray(q.branches) ? q.branches : []).filter((_, i) => i !== bIndex);
       return {
         ...q,
         branches,
@@ -508,7 +576,8 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
     updater: (b: ExamBranchAST) => ExamBranchAST
   ) => {
     updateQuestion(qIndex, q => {
-      const branches = [...q.branches];
+      const branches = Array.isArray(q.branches) ? [...q.branches] : [];
+      if (!branches[bIndex]) return q;
       branches[bIndex] = updater(branches[bIndex]);
       return {
         ...q,
@@ -913,7 +982,7 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
                         title="اسم وعنوان السؤال"
                       />
                       <span className="text-xs px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">
-                        {q.branches.length > 0 ? `${q.branches.length} فروع` : 'سؤال مباشر'}
+                        {(q.branches?.length || 0) > 0 ? `${q.branches?.length || 0} فروع` : 'سؤال مباشر'}
                       </span>
                     </div>
 
@@ -1015,7 +1084,7 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
 
                   {/* Branching Section: Optional branches with add branch button and renameable labels */}
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
-                    {q.branches.length === 0 ? (
+                    {(!q.branches || q.branches.length === 0) ? (
                       /* Question without branches */
                       <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700">
                         <span className="text-xs text-slate-500 font-medium">
@@ -1034,7 +1103,7 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
                       <div className="space-y-2.5 ps-2 border-s-2 border-teal-400 dark:border-teal-700">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                            فروع السؤال ({q.branches.length}):
+                            فروع السؤال ({q.branches?.length || 0}):
                           </span>
                           <div className="flex items-center gap-1.5">
                             <button
@@ -1055,7 +1124,7 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
                           </div>
                         </div>
 
-                        {q.branches.map((b, bIdx) => (
+                        {(q.branches || []).map((b, bIdx) => (
                           <div
                             key={b.id}
                             className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2 shadow-xs"
@@ -1427,14 +1496,22 @@ export const ExamEditor: React.FC<ExamEditorProps> = ({
             } else {
               const newAST = parseExamPaperAST(extractedText);
               setAst(prev => {
-                const combinedQuestions = [...prev.questions, ...newAST.questions];
-                const renumbered = combinedQuestions.map((q, idx) => ({
-                  ...q,
-                  questionNumber: idx + 1,
-                  headerLabel: `س${idx + 1}`,
-                  header: `س${idx + 1}:`,
-                }));
-                const mergedAST = { ...prev, questions: renumbered };
+                const safePrev = sanitizeAST(prev, teacherSubject, fallbackGradeStr);
+                const safeNew = sanitizeAST(newAST, teacherSubject, fallbackGradeStr);
+                const combinedQuestions = [...safePrev.questions, ...safeNew.questions];
+                const renumbered = combinedQuestions.map((q, idx) => {
+                  const branches = Array.isArray(q.branches) ? q.branches : [];
+                  const label = `س${idx + 1}`;
+                  return {
+                    ...q,
+                    questionNumber: idx + 1,
+                    headerLabel: label,
+                    header: q.instruction ? `${label}: ${q.instruction}` : `${label}:`,
+                    branches,
+                    subItems: branches.map(b => ({ label: b.label, text: b.text, marks: b.marks })),
+                  };
+                });
+                const mergedAST = sanitizeAST({ ...safePrev, questions: renumbered }, teacherSubject, fallbackGradeStr);
                 setRawText(serializeExamPaperAST(mergedAST));
                 if (onSave) onSave(mergedAST);
                 return mergedAST;

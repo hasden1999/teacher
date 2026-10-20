@@ -71,8 +71,15 @@ export class LatexPreserver {
     this.tokens.clear();
     this.counter = 0;
 
+    // 0. حماية صور ومعادلات القص البصري المدمجة [صورة_معادلة:data:image/...]
+    let protectedText = text.replace(/\[صورة_معادلة:data:image\/[^\]]+\]/g, (match) => {
+      const placeholder = `__IMG_EQ_${this.counter++}__`;
+      this.tokens.set(placeholder, match);
+      return placeholder;
+    });
+
     // 1. استبدال صيغ العرض المستقلة $$...$$ مع ضمان عدم ابتلاع أسطر تبدأ بأسئلة جديدة
-    let protectedText = text.replace(/\$\$((?:(?![\r\n]\s*(?:س|Q|السؤال)\s*[:\d١-٩])).)*?\$\$/gis, (match) => {
+    protectedText = protectedText.replace(/\$\$((?:(?![\r\n]\s*(?:س|Q|السؤال)\s*[:\d١-٩])).)*?\$\$/gis, (match) => {
       const placeholder = `__MATH_BLOCK_${this.counter++}__`;
       this.tokens.set(placeholder, match);
       return placeholder;
@@ -434,8 +441,10 @@ export function serializeExamPaperAST(ast: ExamPaperAST): string {
       lines.push(q.mainText);
     }
 
-    if (q.branches && q.branches.length > 0) {
-      for (const b of q.branches) {
+    const branches = Array.isArray(q.branches) ? q.branches : (Array.isArray(q.subItems) ? q.subItems : []);
+    if (branches.length > 0) {
+      for (const b of branches) {
+        if (!b) continue;
         let bMarks = '';
         if (b.marks !== undefined && b.marks > 0) {
           if (b.marks === 1) bMarks = ' (درجة واحدة)';
@@ -446,7 +455,7 @@ export function serializeExamPaperAST(ast: ExamPaperAST): string {
         const bLabel = b.label || 'أ';
         const isOrdinal = ['أولاً', 'اولا', 'ثانياً', 'ثانيا', 'ثالثاً', 'ثالثا', 'رابعاً', 'رابعا', 'خامساً', 'خامسا'].includes(bLabel);
         const prefix = bLabel.startsWith('فرع') ? `${bLabel}:` : (isOrdinal ? `${bLabel}:` : `فرع ${bLabel}:`);
-        const bText = b.text.replace(/^[:/\-.)\]\s]+/, '').trim();
+        const bText = (b.text !== undefined && b.text !== null ? String(b.text) : '').replace(/^[:/\-.)\]\s]+/, '').trim();
         lines.push(`${prefix} ${bText}${bMarks}`.trim());
       }
     }
@@ -480,8 +489,9 @@ export function calculateExamTotalMarks(questions: ExamQuestionAST[]): ExamMarks
     let qMarks = q.marks;
     let isFromBranches = false;
 
-    if ((qMarks === undefined || qMarks === 0) && q.branches && q.branches.length > 0) {
-      const branchTotal = q.branches.reduce((acc, b) => acc + (b.marks || 0), 0);
+    const branches = Array.isArray(q?.branches) ? q.branches : (Array.isArray(q?.subItems) ? q.subItems : []);
+    if ((qMarks === undefined || qMarks === 0) && branches.length > 0) {
+      const branchTotal = branches.reduce((acc, b) => acc + (b?.marks || 0), 0);
       if (branchTotal > 0) {
         qMarks = branchTotal;
         isFromBranches = true;

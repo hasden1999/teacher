@@ -260,27 +260,43 @@ ${indexedSubjectExamples || 'أسئلة الكتاب المدرسي العراق
   }
 ]`;
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(activeKey)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              response_mime_type: 'application/json',
-              temperature: 0.0,
-            },
-          }),
-        }
-      );
+      const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+      let rawText = '';
+      let lastErrStatus = 0;
 
-      if (!response.ok) {
-        throw new Error(`خطأ في استجابة الخادم (${response.status})`);
+      for (const model of modelsToTry) {
+        try {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(activeKey)}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                  response_mime_type: 'application/json',
+                  temperature: 0.0,
+                },
+              }),
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (rawText) break;
+          } else {
+            lastErrStatus = response.status;
+          }
+        } catch {
+          // try next model
+        }
       }
 
-      const data = await response.json();
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (!rawText) {
+        throw new Error(`خطأ في استجابة الخادم (${lastErrStatus || 404})`);
+      }
+
       const parsed = JSON.parse(rawText.replace(/```json/g, '').replace(/```/g, '').trim());
 
       if (Array.isArray(parsed) && parsed.length > 0) {

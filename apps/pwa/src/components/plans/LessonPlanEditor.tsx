@@ -211,25 +211,38 @@ export const LessonPlanEditor: React.FC<LessonPlanEditorProps> = ({
   "closure": "الواجب البيتي وغلق الدرس (5 دقائق) مع تحديد المطلوب من الكتاب المدرسي للدرس القادم"
 }`;
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(activeKey)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              response_mime_type: 'application/json',
-              temperature: 0.2,
-            },
-          }),
-        }
-      );
+      const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+      let planJsonText = '';
 
-      if (response.ok) {
-        const data = await response.json();
-        const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const parsed = JSON.parse(raw.replace(/```json/g, '').replace(/```/g, '').trim());
+      for (const model of modelsToTry) {
+        try {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(activeKey)}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                  response_mime_type: 'application/json',
+                  temperature: 0.2,
+                },
+              }),
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            planJsonText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (planJsonText) break;
+          }
+        } catch {
+          // try next model
+        }
+      }
+
+      if (planJsonText) {
+        const parsed = JSON.parse(planJsonText.replace(/```json/g, '').replace(/```/g, '').trim());
         if (parsed && typeof parsed === 'object') {
           setCurrentPlan({
             ...smartFallback,
