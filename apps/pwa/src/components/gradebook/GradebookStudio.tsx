@@ -114,6 +114,7 @@ export const GradebookStudio: React.FC<GradebookStudioProps> = ({
   });
   const [activeMobileColumnKey, setActiveMobileColumnKey] = useState<string>('component_oral');
   const [viewType, setViewType] = useState<'cards' | 'table'>('cards');
+  const [isOptionsMenuOpen, setIsOptionsMenuOpen] = useState<boolean>(false);
 
   // Sync activeClass selection from Top Bar into Gradebook division
   useEffect(() => {
@@ -580,141 +581,185 @@ export const GradebookStudio: React.FC<GradebookStudioProps> = ({
 
   return (
     <div dir="rtl" className="max-w-7xl mx-auto space-y-4 font-tajawal">
-      {/* Top Controls Toolbar */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">📊</span>
-          <div>
-            <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
-              سجل الدرجات الوزاري الإلكتروني {subjectName ? `— (${subjectName})` : ''}
-            </h2>
-            <p className="text-xs text-slate-500">
-              معادلات السعي والقرار الوزاري المعتمدة وفق ضوابط وزارة التربية
-            </p>
-          </div>
-        </div>
+      {/* Distraction-Free Focused Toolbar (منع التشتت والتعقيد) */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200 dark:border-slate-800 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          {/* Main Info & Division Selector */}
+          <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+            <span className="text-xl sm:text-2xl shrink-0">📊</span>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100 truncate">
+                سجل الدرجات {subjectName ? `— ${subjectName}` : ''}
+              </h2>
+              <p className="text-[11px] text-slate-500 hidden sm:block">
+                معادلات السعي والقرار الوزاري المعتمدة وفق ضوابط وزارة التربية
+              </p>
+            </div>
 
-        {/* Division Selector & Mode Toggle */}
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={activeDivision}
-            onChange={(e) => handleDivisionChange(e.target.value)}
-            className="min-h-[44px] px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold cursor-pointer"
-          >
-            {divisionsList.map((div) => (
-              <option key={div.id} value={div.name}>
-                {div.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Mode toggle */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-            <button
-              type="button"
-              onClick={() => setActiveMode('detailed')}
-              className={`min-h-[38px] px-3 py-1 rounded-lg text-xs font-bold transition ${
-                activeMode === 'detailed'
-                  ? 'bg-teal-700 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400'
-              }`}
+            {/* Division Selector */}
+            <select
+              value={activeDivision}
+              onChange={(e) => handleDivisionChange(e.target.value)}
+              className="min-h-[42px] px-3 rounded-xl border border-teal-300 dark:border-teal-700 bg-teal-50/50 dark:bg-slate-800 text-teal-900 dark:text-teal-100 text-xs font-bold cursor-pointer shadow-2xs"
             >
-              مفصل (5×20)
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveMode('simplified')}
-              className={`min-h-[38px] px-3 py-1 rounded-lg text-xs font-bold transition ${
-                activeMode === 'simplified'
-                  ? 'bg-teal-700 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              مبسط (درجة 100)
-            </button>
+              {divisionsList.map((div) => (
+                <option key={div.id} value={div.name}>
+                  {div.name}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Mobile View Switcher (Cards vs Table) */}
-          <div className="flex md:hidden items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+          {/* Primary Quick Controls: View Switcher, Voice & Clean Options Menu */}
+          <div className="flex items-center gap-2 relative">
+            {/* Mobile View Switcher (Cards vs Table) */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setViewType('cards')}
+                className={`min-h-[38px] px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                  viewType === 'cards'
+                    ? 'bg-teal-700 text-white shadow'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                📱 بطاقات
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewType('table')}
+                className={`min-h-[38px] px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                  viewType === 'table'
+                    ? 'bg-teal-700 text-white shadow'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                📊 جدول
+              </button>
+            </div>
+
+            {/* Prominent Voice Entry Button (Direct 1-tap reach) */}
             <button
               type="button"
-              onClick={() => setViewType('cards')}
-              className={`min-h-[38px] px-3 py-1 rounded-lg text-xs font-bold transition ${
-                viewType === 'cards'
-                  ? 'bg-teal-700 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400'
-              }`}
+              onClick={() => setIsVoiceModalOpen(true)}
+              className="min-h-[42px] px-3.5 py-1.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+              title="إدخال الدرجات صوتياً بالذكاء الاصطناعي"
             >
-              📱 بطاقات
+              <span className="text-sm">🎙️</span>
+              <span className="hidden xs:inline">إدخال صوتي</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setViewType('table')}
-              className={`min-h-[38px] px-3 py-1 rounded-lg text-xs font-bold transition ${
-                viewType === 'table'
-                  ? 'bg-teal-700 text-white shadow'
-                  : 'text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              📊 جدول
-            </button>
+
+            {/* Secondary Options Button (Declutters 6 buttons into 1 clean menu) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsOptionsMenuOpen((prev) => !prev)}
+                className="min-h-[42px] px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                title="خيارات السجل الإضافية"
+                aria-expanded={isOptionsMenuOpen}
+              >
+                <span>⚙️ خيارات</span>
+                <span className="text-[10px]">▾</span>
+              </button>
+
+              {/* Dropdown Menu Popover */}
+              {isOptionsMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsOptionsMenuOpen(false)}
+                  />
+                  <div className="absolute left-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-2 space-y-1.5 animate-in fade-in duration-150 text-right">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOptionsMenuOpen(false);
+                        setIsOcrModalOpen(true);
+                      }}
+                      className="w-full text-right px-3 py-2 rounded-xl text-xs font-bold hover:bg-teal-50 dark:hover:bg-teal-950/40 text-teal-800 dark:text-teal-200 flex items-center gap-2 transition"
+                    >
+                      <span>📸</span>
+                      <span>إضافة طلاب (مسح ورقي أو لصق)</span>
+                    </button>
+
+                    <div className="border-t border-slate-100 dark:border-slate-800 my-1 pt-1.5 px-2">
+                      <span className="text-[10px] font-bold text-slate-400 block mb-1">
+                        نمط الإدخال:
+                      </span>
+                      <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveMode('detailed');
+                            setIsOptionsMenuOpen(false);
+                          }}
+                          className={`flex-1 py-1 rounded text-[11px] font-bold transition ${
+                            activeMode === 'detailed'
+                              ? 'bg-teal-700 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          مفصل (5×20)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveMode('simplified');
+                            setIsOptionsMenuOpen(false);
+                          }}
+                          className={`flex-1 py-1 rounded text-[11px] font-bold transition ${
+                            activeMode === 'simplified'
+                              ? 'bg-teal-700 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400'
+                          }`}
+                        >
+                          مبسط (100)
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOptionsMenuOpen(false);
+                        togglePeriodLock();
+                      }}
+                      className="w-full text-right px-3 py-2 rounded-xl text-xs font-bold hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-800 dark:text-amber-200 flex items-center gap-2 transition"
+                    >
+                      <span>{isCurrentPeriodLocked ? '🔓' : '🔒'}</span>
+                      <span>{isCurrentPeriodLocked ? 'فك قفل الدرجات' : 'قفل درجات هذا العمود'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOptionsMenuOpen(false);
+                        handleExportExcel();
+                      }}
+                      className="w-full text-right px-3 py-2 rounded-xl text-xs font-bold hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 flex items-center gap-2 transition"
+                    >
+                      <span>📥</span>
+                      <span>تصدير كشف الدرجات (CSV/Excel)</span>
+                    </button>
+
+                    <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOptionsMenuOpen(false);
+                        handleClearSampleData();
+                      }}
+                      className="w-full text-right px-3 py-2 rounded-xl text-xs font-bold hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center gap-2 transition"
+                    >
+                      <span>🗑️</span>
+                      <span>مسح البيانات التجريبية للشعبة</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setIsOcrModalOpen(true)}
-            className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition flex items-center gap-1.5 shadow cursor-pointer"
-            title="إدراج الطلاب عبر مسح ورقة خط اليد"
-          >
-            <span>📸</span>
-            <span>مسح خط اليد</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsVoiceModalOpen(true)}
-            className="hidden md:flex min-h-[44px] px-3.5 py-1.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-white text-xs font-bold transition items-center gap-1.5 shadow"
-          >
-            <span>🎙️</span>
-            <span>إدخال الدرجات بالصوت</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            className="min-h-[44px] px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition flex items-center gap-1.5 shadow"
-          >
-            <span>📥</span>
-            <span>تصدير Excel/CSV</span>
-          </button>
-
-          {/* Period Lock Toggle Button (Section 6.2 & 9.3) */}
-          <button
-            type="button"
-            onClick={togglePeriodLock}
-            className={`min-h-[44px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow ${
-              isCurrentPeriodLocked
-                ? 'bg-amber-600 hover:bg-amber-500 text-white ring-2 ring-amber-300'
-                : 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
-            }`}
-            title={
-              isCurrentPeriodLocked
-                ? 'فك قفل الفترة للسماح بالتعديل'
-                : 'قفل الفترة لمنع التعديل العرضي أثناء الحصة'
-            }
-          >
-            <span>{isCurrentPeriodLocked ? '🔒 الفترة مقفلة' : '🔓 قفل الفترة'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleClearSampleData}
-            title="مسح البيانات التجريبية للشعبة الحالية"
-            className="min-h-[44px] px-3 py-1.5 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/40 text-red-700 dark:text-red-400 text-xs font-bold transition flex items-center gap-1"
-          >
-            <span>🗑️</span>
-            <span>مسح البيانات التجريبية</span>
-          </button>
         </div>
       </div>
 

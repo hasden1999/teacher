@@ -2,7 +2,11 @@
 import React, { act } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { StudentRosterOcrModal } from '../src/components/classes/StudentRosterOcrModal.js';
+import {
+  StudentRosterOcrModal,
+  parseRawRosterText,
+  detectIsFemaleGender,
+} from '../src/components/classes/StudentRosterOcrModal.js';
 import { ToastProvider } from '../src/components/common/Toast.js';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -109,5 +113,48 @@ describe('StudentRosterOcrModal Roster Extraction & Target Division Suite', () =
 
     // The modal should remain open and interactive
     expect(container.querySelector('h2')?.textContent).toContain('إدراج الطلاب عبر مسح خط اليد');
+  });
+
+  describe('Resilient Roster Parser (Regex Fallback & Gender Detection)', () => {
+    it('parses structured JSON output correctly', () => {
+      const json = JSON.stringify([
+        { rollNumber: 1, fullName: 'أحمد علي حسن', gender: 'male' },
+        { rollNumber: 2, fullName: 'زينب عادل كريم', gender: 'female' },
+      ]);
+      const res = parseRawRosterText(json);
+      expect(res.length).toBe(2);
+      expect(res[0].fullName).toBe('أحمد علي حسن');
+      expect(res[0].gender).toBe('male');
+      expect(res[1].fullName).toBe('زينب عادل كريم');
+      expect(res[1].gender).toBe('female');
+    });
+
+    it('recovers names from unstructured numbered text and detects gender', () => {
+      const rawText = `
+        قائمة أسماء الطلبة لشعبة أ:
+        1- كرار حيدر جاسم
+        2. مريم كاظم ناصر
+        3) محمد فاضل عباس - ذكر
+        • هدى جاسم محمد
+      `;
+      const res = parseRawRosterText(rawText);
+      expect(res.length).toBe(4);
+      expect(res[0].fullName).toBe('كرار حيدر جاسم');
+      expect(res[0].gender).toBe('male');
+      expect(res[1].fullName).toBe('مريم كاظم ناصر');
+      expect(res[1].gender).toBe('female');
+      expect(res[2].fullName).toBe('محمد فاضل عباس');
+      expect(res[2].gender).toBe('male');
+      expect(res[3].fullName).toBe('هدى جاسم محمد');
+      expect(res[3].gender).toBe('female');
+    });
+
+    it('accurately identifies common Iraqi female first names', () => {
+      expect(detectIsFemaleGender('', 'فاطمة محمد')).toBe(true);
+      expect(detectIsFemaleGender('', 'زهراء علي')).toBe(true);
+      expect(detectIsFemaleGender('', 'علي حسين')).toBe(false);
+      expect(detectIsFemaleGender('', 'حمزة عادل')).toBe(false);
+      expect(detectIsFemaleGender('female', 'نور أحمد')).toBe(true);
+    });
   });
 });

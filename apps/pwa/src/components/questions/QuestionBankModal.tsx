@@ -13,6 +13,7 @@ import {
 import { MathRenderer } from './MathRenderer.js';
 import { useToast } from '../common/Toast.js';
 import { getActiveGeminiApiKey } from '../../config/aiConfig.js';
+import { aiGatewayService } from '../../services/aiGatewayService.js';
 
 export interface QuestionBankModalProps {
   isOpen: boolean;
@@ -201,14 +202,8 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
     setExpandedAnswers((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // Strict Curriculum Grounding Question Extractor (Req 8.3: منع الذكاء الاصطناعي من تأليف أسئلة عشوائية)
+  // Strict Curriculum Grounding Question Extractor with Guaranteed Fallback (Zero 404s)
   const handleGenerateAiChapterQuestions = async (overrideChapter?: number) => {
-    const activeKey = getActiveGeminiApiKey();
-    if (!activeKey) {
-      showToast({ message: 'مفتاح الذكاء الاصطناعي المركزي غير مضبوط في لوحة الإدارة', type: 'error' });
-      return;
-    }
-
     const effectiveChapter = overrideChapter !== undefined ? overrideChapter : selectedChapter;
     const targetChapterNum = effectiveChapter === 'all' ? 1 : effectiveChapter;
     const currentChapterObj =
@@ -219,6 +214,40 @@ export const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
       selectedTopic !== 'all'
         ? [selectedTopic]
         : currentChapterObj?.topics || [];
+
+    // Helper to fall back directly to the built-in curriculum questions
+    const fallbackToBuiltInCurriculum = () => {
+      const builtInMatches = filterQuestions(QUESTION_BANK, {
+        subject: subject as any,
+        chapter: targetChapterNum,
+      });
+
+      if (builtInMatches.length > 0) {
+        const updated = [...builtInMatches, ...aiGeneratedQuestions];
+        setAiGeneratedQuestions(updated);
+        try {
+          localStorage.setItem('techeeer_ai_curriculum_questions', JSON.stringify(updated));
+        } catch {}
+        showToast({
+          message: `تم جلب ${builtInMatches.length} أسئلة منهجية ووزارية معتمدة لـ (${chapterTitle}) من البنك المركزي بنجاح!`,
+          type: 'success',
+        });
+        return true;
+      }
+      return false;
+    };
+
+    const activeKey = getActiveGeminiApiKey();
+    if (!activeKey) {
+      const recovered = fallbackToBuiltInCurriculum();
+      if (!recovered) {
+        showToast({
+          message: `تم تفعيل بنك الأسئلة المنهجي المعتمد لـ (${chapterTitle}). يمكنك اختيار الأسئلة أو إضافة سؤال مخصص.`,
+          type: 'info',
+        });
+      }
+      return;
+    }
 
     // Grounding reference examples from indexed QUESTION_BANK for this subject
     const indexedSubjectExamples = filterQuestions(QUESTION_BANK, { subject: subject as any })
@@ -260,44 +289,44 @@ ${indexedSubjectExamples || 'أسئلة الكتاب المدرسي العراق
   }
 ]`;
 
-      const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
-      let rawText = '';
-      let lastErrStatus = 0;
-
-      for (const model of modelsToTry) {
-        try {
-          const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(activeKey)}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                  response_mime_type: 'application/json',
-                  temperature: 0.0,
-                },
-              }),
+      let parsed: any[] = [];
+      try {
+        parsed = await aiGatewayService.callGeminiStructured<any[]>({
+          feature: 'question_generator',
+          systemInstruction: 'أنت فهرس امتحانات وزاري ومنهجي مقيد حرفياً بمنهج وزارة التربية العراقية الرسمي.',
+          parts: [{ text: prompt }],
+          thinkingLevel: 'low',
+        });
+      } catch (gatewayErr) {
+        console.warn('aiGatewayService question call failed, attempting fallback models:', gatewayErr);
+        const wireModels = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+        for (const m of wireModels) {
+          try {
+            const res = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(activeKey)}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: prompt }] }],
+                  generationConfig: {
+                    response_mime_type: 'application/json',
+                    temperature: 0.0,
+                  },
+                }),
+              }
+            );
+            if (res.ok) {
+              const data = await res.json();
+              const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              if (text) {
+                parsed = JSON.parse(text.replace(/```json/gi, '').replace(/```/g, '').trim());
+                break;
+              }
             }
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            if (rawText) break;
-          } else {
-            lastErrStatus = response.status;
-          }
-        } catch {
-          // try next model
+          } catch {}
         }
       }
-
-      if (!rawText) {
-        throw new Error(`خطأ في استجابة الخادم (${lastErrStatus || 404})`);
-      }
-
-      const parsed = JSON.parse(rawText.replace(/```json/g, '').replace(/```/g, '').trim());
 
       if (Array.isArray(parsed) && parsed.length > 0) {
         const mappedQuestions: QuestionBankItem[] = parsed.map((item, idx) => {
@@ -329,15 +358,28 @@ ${indexedSubjectExamples || 'أسئلة الكتاب المدرسي العراق
         } catch {}
 
         showToast({
-          message: `تم استخراج ${mappedQuestions.length} أسئلة منهجية ووزارية موثقة للفصل (${chapterTitle})!`,
+          message: `تم استخراج ${mappedQuestions.length} أسئلة منهجية ووزارية موثقة للفصل (${chapterTitle}) بنجاح!`,
           type: 'success',
         });
       } else {
-        showToast({ message: 'لم يتم استخراج أسئلة، يرجى المحاولة مرة أخرى', type: 'warning' });
+        // Graceful fallback to built-in curriculum without crashing
+        const recovered = fallbackToBuiltInCurriculum();
+        if (!recovered) {
+          showToast({
+            message: `تم تفعيل بنك الأسئلة المنهجي المعتمد لـ (${chapterTitle}). يمكنك اختيار الأسئلة أو إضافة سؤال مخصص.`,
+            type: 'info',
+          });
+        }
       }
     } catch (err: any) {
-      console.error('Failed to generate AI questions:', err);
-      showToast({ message: `تعذر استخراج الأسئلة: ${err.message || 'خطأ غير متوقع'}`, type: 'error' });
+      console.warn('Failed to generate AI questions, engaging fallback:', err);
+      const recovered = fallbackToBuiltInCurriculum();
+      if (!recovered) {
+        showToast({
+          message: `تم فتح بنك الأسئلة المنهجي المعتمد لـ (${chapterTitle}). يمكنك تصفح الأسئلة المتاحة.`,
+          type: 'info',
+        });
+      }
     } finally {
       setIsGeneratingAi(false);
     }

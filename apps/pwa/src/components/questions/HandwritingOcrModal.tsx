@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from '../common/Toast.js';
 import { getActiveGeminiApiKey } from '../../config/aiConfig.js';
+import { aiGatewayService } from '../../services/aiGatewayService.js';
 import { MathRenderer } from './MathRenderer.js';
 
 export interface HandwritingOcrModalProps {
@@ -292,60 +293,54 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
 6. التزم بترقيم الأسطر والأسئلة والفروع (س1، س2، فرع أ، فرع ب) كما هي في الورقة.
 7. أعد فقط النص والأسئلة مباشرة بدون أي كتل كود (code blocks) وبدون أي مقدمات أو شروحات.`;
 
-      const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro'];
       let candidateText = '';
-      let lastErrorStatus = 0;
+      try {
+        candidateText = await aiGatewayService.callGeminiText({
+          feature: 'handwriting_layout',
+          systemInstruction: `أنت ماسح ضوئي بصري حرفي فائق الدقة لنقل نصوص ومعادلات الامتحانات لمادة (${subjectName}).`,
+          parts: [
+            { text: promptText },
+            { inline_data: { mime_type: mimeType, data: base64Data } },
+          ],
+        });
+      } catch (gatewayErr) {
+        console.warn('aiGatewayService handwriting OCR failed, trying direct wire fallback:', gatewayErr);
+        const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
+        for (const model of modelsToTry) {
+          try {
+            const response = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(activeKey)}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [
+                    {
+                      parts: [
+                        { text: promptText },
+                        { inline_data: { mime_type: mimeType, data: base64Data } },
+                      ],
+                    },
+                  ],
+                  generationConfig: { temperature: 0.0 },
+                }),
+              }
+            );
 
-      for (const model of modelsToTry) {
-        try {
-          const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(activeKey)}`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                contents: [
-                  {
-                    parts: [
-                      { text: promptText },
-                      {
-                        inline_data: {
-                          mime_type: mimeType,
-                          data: base64Data,
-                        },
-                      },
-                    ],
-                  },
-                ],
-                generationConfig: {
-                  temperature: 0.0,
-                },
-              }),
+            if (response.ok) {
+              const data = await response.json();
+              candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+              if (candidateText) break;
             }
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
-            if (candidateText) {
-              // Strip code fences if returned by model
-              candidateText = candidateText
-                .replace(/^```[a-zA-Z]*\r?\n/, '')
-                .replace(/\r?\n```$/, '')
-                .trim();
-              break;
-            }
-          } else {
-            lastErrorStatus = response.status;
-          }
-        } catch {
-          // try next model
+          } catch {}
         }
       }
 
       if (candidateText) {
+        candidateText = candidateText
+          .replace(/^```[a-zA-Z]*\r?\n/, '')
+          .replace(/\r?\n```$/, '')
+          .trim();
         setExtractedResult(candidateText);
         showToast({
           message: 'تم استخراج نصوص ومعادلات ورقة الأسئلة (بما فيها الجذور والكسور) بنجاح!',
@@ -353,16 +348,14 @@ export const HandwritingOcrModal: React.FC<HandwritingOcrModalProps> = ({
         });
       } else {
         showToast({
-          message: lastErrorStatus
-            ? `تعذر استخراج النص (رمز: ${lastErrorStatus}). يمكنك استخدام أداة القص الحرفي للمعادلة.`
-            : 'لم يتم التعرف على نصوص واضحة، يمكنك استخدام أداة القص الحرفي للمعادلات المرسومة.',
-          type: 'warning',
+          message: 'لم يتم التعرف على نصوص واضحة، يمكنك كتابة أو تعديل النص مباشرة أدناه أو استخدام أداة القص.',
+          type: 'info',
         });
       }
     } catch (err: any) {
       showToast({
-        message: `تعذر إتمام المعالجة: ${err.message}`,
-        type: 'error',
+        message: 'يمكنك كتابة أو لصق نص وسؤال الامتحان يدوياً في خانة التعديل المباشر.',
+        type: 'info',
       });
     } finally {
       setIsProcessing(false);

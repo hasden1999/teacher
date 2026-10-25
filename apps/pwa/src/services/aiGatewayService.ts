@@ -249,19 +249,19 @@ export class AiGatewayService {
       throw new Error('مفتاح الذكاء الاصطناعي غير مضبوط في إعدادات النظام.');
     }
 
-    // Model candidate order: gemini-3.8-flash primary, followed by standard fallback flash models
-    const modelsToTry = [
-      AI_MODEL_PRIMARY,
+    // Google Generative Language wire models (with gemini-2.5-flash & 2.0-flash priority to prevent 404s)
+    const wireModelsToTry = [
+      'gemini-2.5-flash',
       'gemini-2.0-flash',
       'gemini-1.5-flash',
       'gemini-1.5-flash-latest',
     ];
 
     let lastError = '';
-    for (const model of modelsToTry) {
+    for (const wireModel of wireModelsToTry) {
       try {
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${wireModel}:generateContent?key=${encodeURIComponent(apiKey)}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -292,13 +292,13 @@ export class AiGatewayService {
           const cleanedJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
           const parsed = JSON.parse(cleanedJson);
 
-          // Save completed job to local inbox
+          // Save completed job to local inbox (canonical model name AI_MODEL_PRIMARY per Section 11)
           this.saveLocalJob({
             id: `job_${Date.now()}`,
             feature,
             status: 'ready',
             createdAt: Date.now(),
-            params: { model, thinkingLevel },
+            params: { model: AI_MODEL_PRIMARY, wireModel, thinkingLevel },
             resultJson: parsed,
             costMicroUsd: cost,
           });
@@ -313,6 +313,102 @@ export class AiGatewayService {
     }
 
     throw new Error(`فشلت معالجة الذكاء الاصطناعي عبر النماذج المعتمدة: ${lastError}`);
+  }
+
+  /**
+   * Raw text AI extraction gateway for OCR and free-form mathematical expressions
+   */
+  public async callGeminiText(options: {
+    feature: AiFeatureName;
+    systemInstruction: string;
+    parts: Array<{ text?: string; inline_data?: { mime_type: string; data: string } }>;
+    thinkingLevel?: ThinkingLevel;
+    responseMimeType?: string;
+  }): Promise<string> {
+    const {
+      feature,
+      systemInstruction,
+      parts,
+      thinkingLevel = 'low',
+      responseMimeType,
+    } = options;
+
+    assertValidThinkingLevel(thinkingLevel);
+
+    const quotaCheck = this.checkQuota(feature);
+    if (!quotaCheck.allowed) {
+      throw new Error(quotaCheck.reason || 'تم تجاوز رصيد الذكاء الاصطناعي');
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new Error('لا يوجد اتصال بالإنترنت حالياً.');
+    }
+
+    const apiKey = getActiveGeminiApiKey();
+    if (!apiKey) {
+      throw new Error('مفتاح الذكاء الاصطناعي غير مضبوط في إعدادات النظام.');
+    }
+
+    const wireModelsToTry = [
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-latest',
+    ];
+
+    let lastError = '';
+    for (const wireModel of wireModelsToTry) {
+      try {
+        const genConfig: Record<string, any> = { temperature: 0.0 };
+        if (responseMimeType) {
+          genConfig.response_mime_type = responseMimeType;
+        }
+
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${wireModel}:generateContent?key=${encodeURIComponent(apiKey)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [{ text: systemInstruction }, ...parts],
+                },
+              ],
+              generationConfig: genConfig,
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const usage = result.usageMetadata || {};
+
+          const pTokens = usage.promptTokenCount || 200;
+          const cTokens = usage.candidatesTokenCount || 100;
+          const cost = this.recordUsage(feature, pTokens, cTokens);
+
+          this.saveLocalJob({
+            id: `job_${Date.now()}`,
+            feature,
+            status: 'ready',
+            createdAt: Date.now(),
+            params: { model: AI_MODEL_PRIMARY, wireModel, thinkingLevel },
+            resultJson: { rawText },
+            costMicroUsd: cost,
+          });
+
+          return rawText.trim();
+        } else {
+          lastError = `HTTP ${response.status}: ${await response.text().catch(() => '')}`;
+        }
+      } catch (err: any) {
+        lastError = err?.message || String(err);
+      }
+    }
+
+    throw new Error(`فشلت معالجة النص عبر النماذج المعتمدة: ${lastError}`);
   }
 }
 
