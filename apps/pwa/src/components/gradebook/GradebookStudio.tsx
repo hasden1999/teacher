@@ -28,6 +28,7 @@ import {
 import { VoiceGradeEntryModal } from './VoiceGradeEntryModal.js';
 import { MobileStudentCardsView } from './MobileStudentCardsView.js';
 import { StudentRosterOcrModal } from '../classes/StudentRosterOcrModal.js';
+import { ExplainGradeModal } from './ExplainGradeModal.js';
 
 // Sample Seed for empty initial run (clearly designated as SAMPLE_SEED)
 export const SAMPLE_SEED_STUDENTS: StudentRowItem[] = [
@@ -145,6 +146,12 @@ export const GradebookStudio: React.FC<GradebookStudioProps> = ({
   const [selectedStudentForCard, setSelectedStudentForCard] = useState<StudentRowItem | null>(null);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState<boolean>(false);
   const [isOcrModalOpen, setIsOcrModalOpen] = useState<boolean>(false);
+  const [periodLocks, setPeriodLocks] = useState<Record<string, boolean>>({});
+  const [explainStudent, setExplainStudent] = useState<{
+    name: string;
+    id: string;
+    columnKey: string;
+  } | null>(null);
 
   const { showToast } = useToast();
 
@@ -229,6 +236,13 @@ export const GradebookStudio: React.FC<GradebookStudioProps> = ({
         }))
       );
       setGrades(dbMatrix);
+
+      try {
+        const locks = await gradebookDbService.getPeriodLocks(divisionId);
+        setPeriodLocks(locks);
+      } catch (lockErr) {
+        console.warn('Failed to load period locks:', lockErr);
+      }
     } catch (err: any) {
       console.warn('Failed to load gradebook from database:', err);
       if (
@@ -399,12 +413,39 @@ export const GradebookStudio: React.FC<GradebookStudioProps> = ({
     return res;
   };
 
+  // Section 6.2 & 9.3: Period Lock guard & controls
+  const currentPeriodKey = activeMobileColumnKey || 'daily';
+  const isCurrentPeriodLocked = Boolean(periodLocks[currentPeriodKey] || periodLocks['all']);
+
+  const togglePeriodLock = async () => {
+    const nextLocked = !isCurrentPeriodLocked;
+    await gradebookDbService.setPeriodLock(divisionId, currentPeriodKey, nextLocked);
+    setPeriodLocks((prev) => ({
+      ...prev,
+      [currentPeriodKey]: nextLocked,
+    }));
+    showToast({
+      message: nextLocked
+        ? `تم قفل درجات (${activeMobileColumnKey}) بنجاح لحمايتها من التعديل العرضي`
+        : `تم فك قفل درجات (${activeMobileColumnKey}) والسماح بالتعديل`,
+      type: nextLocked ? 'info' : 'success',
+    });
+  };
+
   const handleGradeChange = (
     studentId: string,
     columnKey: string,
     score: number | null,
     isAbsent: boolean
   ) => {
+    if (periodLocks[columnKey] || periodLocks['all']) {
+      showToast({
+        message: 'لا يمكن التعديل: درجات هذا العمود مقفلة حالياً. اضغط "فك القفل" للتعديل.',
+        type: 'error',
+      });
+      return;
+    }
+
     setGrades((prev) => {
       let studentGrades = { ...(prev[studentId] || {}) };
       studentGrades[columnKey] = { score, isAbsent };
@@ -647,6 +688,24 @@ export const GradebookStudio: React.FC<GradebookStudioProps> = ({
             <span>تصدير Excel/CSV</span>
           </button>
 
+          {/* Period Lock Toggle Button (Section 6.2 & 9.3) */}
+          <button
+            type="button"
+            onClick={togglePeriodLock}
+            className={`min-h-[44px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow ${
+              isCurrentPeriodLocked
+                ? 'bg-amber-600 hover:bg-amber-500 text-white ring-2 ring-amber-300'
+                : 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+            }`}
+            title={
+              isCurrentPeriodLocked
+                ? 'فك قفل الفترة للسماح بالتعديل'
+                : 'قفل الفترة لمنع التعديل العرضي أثناء الحصة'
+            }
+          >
+            <span>{isCurrentPeriodLocked ? '🔒 الفترة مقفلة' : '🔓 قفل الفترة'}</span>
+          </button>
+
           <button
             type="button"
             onClick={handleClearSampleData}
@@ -658,6 +717,26 @@ export const GradebookStudio: React.FC<GradebookStudioProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Period Lock Visual Alert Banner */}
+      {isCurrentPeriodLocked && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-800 dark:text-amber-200 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">🔒</span>
+            <div>
+              <p className="font-bold">درجات الفترة الحالية ({activeMobileColumnKey}) مقفلة</p>
+              <p className="text-[11px] opacity-80">تم تفعيل حماية الفترة لمنع أي تعديل أو ضغط غير مقصود على الشاشة أثناء الحصة.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={togglePeriodLock}
+            className="min-h-[36px] px-3.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition shadow-sm"
+          >
+            فك قفل الفترة
+          </button>
+        </div>
+      )}
 
       {/* Main View: Loading State, Empty State, or Data Tables */}
       {isLoading ? (
@@ -736,6 +815,8 @@ export const GradebookStudio: React.FC<GradebookStudioProps> = ({
               onGradeChange={handleGradeChange}
               onBatchFillRequest={(col) => setBatchModalColumn(col)}
               onStudentSelect={(std) => setSelectedStudentForCard(std)}
+              onExplainGrade={(std, col) => setExplainStudent({ name: std.fullName, id: std.id, columnKey: col.key })}
+              isPeriodLocked={isCurrentPeriodLocked}
             />
           </div>
         </>
@@ -835,6 +916,29 @@ export const GradebookStudio: React.FC<GradebookStudioProps> = ({
         divisionsList={divisionsList}
         currentDivisionId={divisionId}
       />
+
+      {/* Grade Calculation Explanation Modal (Section 6.2) */}
+      {explainStudent && (
+        <ExplainGradeModal
+          isOpen={Boolean(explainStudent)}
+          onClose={() => setExplainStudent(null)}
+          studentName={explainStudent.name}
+          nodeId={
+            explainStudent.columnKey === 'annual_effort'
+              ? 'annualSaee'
+              : explainStudent.columnKey === 'semester_1_avg'
+              ? 'term1'
+              : explainStudent.columnKey === 'semester_2_avg'
+              ? 'term2'
+              : explainStudent.columnKey === 'month_1'
+              ? 'm1'
+              : explainStudent.columnKey === 'month_2'
+              ? 'm2'
+              : explainStudent.columnKey
+          }
+          studentGrades={grades[explainStudent.id] || {}}
+        />
+      )}
     </div>
   );
 };

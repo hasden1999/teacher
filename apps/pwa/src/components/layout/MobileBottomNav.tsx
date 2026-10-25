@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavTabId } from './DesktopSidebar.js';
 import {
+  IconToday,
   IconGradebook,
   IconQuestions,
   IconPlans,
@@ -20,13 +21,14 @@ export interface MobileTabItem {
   isCenter?: boolean;
 }
 
-// Ergonomic 5-Tab Layout: 'gradebook' in the absolute center (index 2) for one-handed thumb reach
+// Ergonomic Mobile Layout: 'today' as home, 'gradebook' highlighted, pure single-thumb reach
 export const MOBILE_TABS: MobileTabItem[] = [
-  { id: 'classes', label: 'الصفوف', icon: IconClasses },
-  { id: 'questions', label: 'الأسئلة', icon: IconQuestions },
+  { id: 'today', label: 'اليوم', icon: IconToday },
   { id: 'gradebook', label: 'الدرجات', icon: IconGradebook, isCenter: true },
+  { id: 'questions', label: 'الأسئلة', icon: IconQuestions },
   { id: 'plans', label: 'الخطط', icon: IconPlans },
-  { id: 'settings', label: 'الإعدادات', icon: IconSettings },
+  { id: 'classes', label: 'الصفوف', icon: IconClasses },
+  { id: 'settings', label: 'المزيد', icon: IconSettings },
 ];
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChange }) => {
@@ -45,7 +47,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onT
       className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] font-tajawal select-none"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 6px)' }}
     >
-      <div className="grid grid-cols-5 h-16 items-center px-1 max-w-lg mx-auto">
+      <div className="grid grid-cols-6 h-16 items-center px-0.5 max-w-lg mx-auto">
         {MOBILE_TABS.map((tab) => {
           const isActive = activeTab === tab.id;
           const IconComp = tab.icon;

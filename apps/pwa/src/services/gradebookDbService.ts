@@ -780,6 +780,61 @@ export class GradebookDbService {
       }
     }
   }
+
+  /**
+   * Section 6.2 & 9.3: Period Locks (قفل الفترة أو الشهر لمنع التعديل العرضي أثناء الحصة)
+   */
+  public async getPeriodLocks(classId: string): Promise<Record<string, boolean>> {
+    const res: Record<string, boolean> = {};
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(`techeeer_period_locks_${classId}`);
+        if (raw) Object.assign(res, JSON.parse(raw));
+      } catch {}
+    }
+    try {
+      const rows = await dbClient.query<{ period_key: string }>(
+        'SELECT period_key FROM period_locks WHERE class_id = ?;',
+        [classId]
+      );
+      if (rows && rows.length > 0) {
+        for (const r of rows) {
+          res[r.period_key] = true;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to query period_locks:', err);
+    }
+    return res;
+  }
+
+  public async setPeriodLock(classId: string, periodKey: string, locked: boolean): Promise<void> {
+    const current = await this.getPeriodLocks(classId);
+    if (locked) {
+      current[periodKey] = true;
+    } else {
+      delete current[periodKey];
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(`techeeer_period_locks_${classId}`, JSON.stringify(current));
+    }
+    try {
+      if (locked) {
+        const id = `lock_${classId}_${periodKey}`;
+        await dbClient.exec(
+          'INSERT OR REPLACE INTO period_locks (id, class_id, period_key, locked_at) VALUES (?, ?, ?, ?);',
+          [id, classId, periodKey, Date.now()]
+        );
+      } else {
+        await dbClient.exec(
+          'DELETE FROM period_locks WHERE class_id = ? AND period_key = ?;',
+          [classId, periodKey]
+        );
+      }
+    } catch (err) {
+      console.warn('Failed to persist period_lock:', err);
+    }
+  }
 }
 
 export const gradebookDbService = new GradebookDbService();

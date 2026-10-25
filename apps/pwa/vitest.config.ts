@@ -5,6 +5,12 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@techeeer/core': path.resolve(__dirname, '../../packages/core/src/index.ts'),
+      '@techeeer/content': path.resolve(__dirname, '../../packages/content/src/index.ts'),
+      '@techeeer/grading-engine': path.resolve(__dirname, '../../packages/grading-engine/src/index.ts'),
+      '@techeeer/arabic-utils': path.resolve(__dirname, '../../packages/arabic-utils/src/index.ts'),
+      '@techeeer/math-tools': path.resolve(__dirname, '../../packages/math-tools/src/index.ts'),
+      '@techeeer/contracts': path.resolve(__dirname, '../../packages/contracts/src/index.ts'),
     },
   },
   test: {

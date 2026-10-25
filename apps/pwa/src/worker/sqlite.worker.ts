@@ -3,7 +3,7 @@
  * Runs @sqlite.org/sqlite-wasm with OPFS SAHPool VFS and Web Locks concurrency control.
  */
 
-import { runMigrations } from './schema.js';
+import { runMigrations, ensureV2SyncTables } from './schema.js';
 import {
   BackupEngine,
   OPFSBackupStorageAdapter,
@@ -157,6 +157,7 @@ export async function initializeDb(
     activeDb.exec('PRAGMA synchronous = NORMAL;');
     activeDb.exec('PRAGMA cache_size = -64000;'); // 64MB Cache
     runMigrations(activeDb);
+    ensureV2SyncTables(activeDb);
   }
 
   // 5. Initialize Automated Backup Engine

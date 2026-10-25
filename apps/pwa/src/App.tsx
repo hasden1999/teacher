@@ -11,6 +11,9 @@ import { authService, TeacherAccount } from './services/authService.js';
 import { getSubjectById } from '@techeeer/content';
 import type { TeacherProfile } from '@techeeer/content';
 
+const TodayStudio = lazy(() =>
+  import('./features/today/TodayStudio.js').then((m) => ({ default: m.TodayStudio }))
+);
 const GradebookStudio = lazy(() =>
   import('./components/gradebook/GradebookStudio.js').then((m) => ({ default: m.GradebookStudio }))
 );
@@ -49,15 +52,15 @@ export const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTabId>(() => {
     if (typeof window !== 'undefined') {
       const h = window.location.hash.toLowerCase().replace(/^#\/?/, '');
-      if (['gradebook', 'questions', 'plans', 'classes', 'backups', 'settings'].includes(h)) {
+      if (['today', 'gradebook', 'questions', 'plans', 'classes', 'backups', 'settings'].includes(h)) {
         return h as NavTabId;
       }
       const p = window.location.pathname.toLowerCase().replace(/^\//, '');
-      if (['gradebook', 'questions', 'plans', 'classes', 'backups', 'settings'].includes(p)) {
+      if (['today', 'gradebook', 'questions', 'plans', 'classes', 'backups', 'settings'].includes(p)) {
         return p as NavTabId;
       }
     }
-    return 'gradebook';
+    return 'today';
   });
 
   // Teacher profile state initialized from authService
@@ -94,7 +97,7 @@ export const AppContent: React.FC = () => {
 
       const hash = window.location.hash.toLowerCase();
       const cleanHash = hash.replace(/^#\/?/, '');
-      if (['gradebook', 'questions', 'plans', 'classes', 'backups', 'settings'].includes(cleanHash)) {
+      if (['today', 'gradebook', 'questions', 'plans', 'classes', 'backups', 'settings'].includes(cleanHash)) {
         setActiveTab(cleanHash as NavTabId);
       }
     };
@@ -195,6 +198,35 @@ export const AppContent: React.FC = () => {
       >
         <Suspense fallback={<div className="p-12 text-center text-slate-400 font-tajawal text-sm">جاري التحميل...</div>}>
           <ErrorBoundary key={activeTab}>
+            {activeTab === 'today' && (
+              <TodayStudio
+                assignedClasses={allAssignedClasses}
+                activeClassId={activeClassAssignment?.id || ''}
+                onSelectAssignedClass={(cls) => {
+                  const updated: TeacherProfile = {
+                    ...teacher,
+                    stage: cls.stage,
+                    grade: cls.grade,
+                    stream: cls.stream,
+                    subject: cls.subject,
+                  };
+                  setTeacher(updated);
+                  const savedAcc = authService.saveTeacherProfile({
+                    stage: cls.stage,
+                    grade: cls.grade,
+                    stream: cls.stream,
+                    subject: cls.subject || teacher.subject,
+                    division: cls.division || 'أ',
+                    activeClassId: cls.id,
+                  });
+                  setTeacherAccount(savedAcc);
+                }}
+                onNavigateToTab={(tab) => setActiveTab(tab as NavTabId)}
+                teacherName={teacherAccount?.fullName || 'الأستاذ'}
+                subjectName={subjectNameAr}
+              />
+            )}
+
             {activeTab === 'gradebook' && (
               <GradebookStudio
                 activeClass={activeClassAssignment}

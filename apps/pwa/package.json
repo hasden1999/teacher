@@ -16,8 +16,12 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@techeeer/arabic-utils": "workspace:*",
     "@techeeer/content": "workspace:*",
+    "@techeeer/contracts": "workspace:*",
     "@techeeer/core": "workspace:*",
+    "@techeeer/grading-engine": "workspace:*",
+    "@techeeer/math-tools": "workspace:*",
     "clsx": "^2.1.1",
     "dompurify": "^3.4.16",
     "katex": "^0.16.47",

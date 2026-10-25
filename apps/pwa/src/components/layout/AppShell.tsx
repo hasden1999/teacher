@@ -37,11 +37,11 @@ export const AppShell: React.FC<AppShellProps> = ({
   onOpenActivation,
   onOpenProfile,
 }) => {
-  const [internalTab, setInternalTab] = useState<NavTabId>('gradebook');
+  const [internalTab, setInternalTab] = useState<NavTabId>('today');
   const activeTab = externalTab ?? internalTab;
   const handleTabChange = externalTabChange ?? setInternalTab;
 
-  const currentSection = NAV_ITEMS.find((item) => item.id === activeTab)?.label || 'سجل الدرجات';
+  const currentSection = NAV_ITEMS.find((item) => item.id === activeTab)?.label || 'اليوم';
   const currentActiveClass =
     assignedClasses.find((c) => c.id === activeClassId) || assignedClasses[0];
 

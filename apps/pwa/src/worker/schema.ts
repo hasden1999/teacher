@@ -189,6 +189,90 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 );
 `;
 
+export const V2_SYNC_TABLES_DDL = `
+-- 13. Outbox Sync Queue (صندوق الصادر للمزامنة - القسم 7.1)
+CREATE TABLE IF NOT EXISTS sync_outbox (
+    op_id TEXT PRIMARY KEY,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    op_type TEXT NOT NULL CHECK (op_type IN ('upsert', 'delete', 'append')),
+    payload_json TEXT NOT NULL,
+    device_id TEXT NOT NULL,
+    op_version INTEGER NOT NULL DEFAULT 1,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sync_outbox_created ON sync_outbox(created_at ASC);
+
+-- 14. Append-Only Daily Events (أحداث التسجيل اليومي السريع - القسم 7.1 و 9.2)
+CREATE TABLE IF NOT EXISTS daily_events (
+    id TEXT PRIMARY KEY,
+    class_id TEXT NOT NULL,
+    student_id TEXT NOT NULL,
+    event_date TEXT NOT NULL,
+    period_no INTEGER,
+    event_type TEXT NOT NULL CHECK (event_type IN ('attendance', 'participation', 'homework', 'prep', 'behavior', 'note')),
+    event_value TEXT NOT NULL,
+    ref_id TEXT,
+    note TEXT,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_daily_events_class_date ON daily_events(class_id, event_date);
+CREATE INDEX IF NOT EXISTS idx_daily_events_student ON daily_events(student_id, event_type);
+
+-- 15. Cell-Level Grade History (سجل تغييرات خلية الدرجة - القسم 7.1 و 9.3)
+CREATE TABLE IF NOT EXISTS grade_history (
+    id TEXT PRIMARY KEY,
+    cell_id TEXT NOT NULL,
+    student_id TEXT NOT NULL,
+    period_key TEXT NOT NULL,
+    component_id TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    device_id TEXT NOT NULL,
+    changed_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_grade_history_cell ON grade_history(cell_id, changed_at DESC);
+
+-- 16. Period Locks (قفل الفترة أو الشهر - القسم 6.2)
+CREATE TABLE IF NOT EXISTS period_locks (
+    id TEXT PRIMARY KEY,
+    class_id TEXT NOT NULL,
+    period_key TEXT NOT NULL,
+    locked_at INTEGER NOT NULL,
+    UNIQUE(class_id, period_key)
+);
+
+-- 17. Weekly Timetable (الجدول الأسبوعي للحصص - القسم 9.1)
+CREATE TABLE IF NOT EXISTS timetables (
+    id TEXT PRIMARY KEY,
+    class_id TEXT NOT NULL,
+    class_label TEXT NOT NULL,
+    subject_name TEXT NOT NULL,
+    weekday INTEGER NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+    period_no INTEGER NOT NULL CHECK (period_no BETWEEN 1 AND 8),
+    created_at INTEGER NOT NULL,
+    UNIQUE(weekday, period_no)
+);
+
+-- 18. Local AI Jobs Inbox (صندوق مهام الذكاء الاصطناعي المحلي - القسم 11.2)
+CREATE TABLE IF NOT EXISTS ai_jobs_local (
+    id TEXT PRIMARY KEY,
+    feature TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('queued_local', 'uploading', 'queued', 'processing', 'ready', 'failed', 'cancelled', 'reviewed')),
+    params_json TEXT NOT NULL,
+    result_json TEXT,
+    cost_micro_usd INTEGER DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    reviewed_at INTEGER
+);
+`;
+
+export function ensureV2SyncTables(db: any): void {
+  if (db && typeof db.exec === 'function') {
+    db.exec(V2_SYNC_TABLES_DDL);
+  }
+}
+
 export const MIGRATIONS: Migration[] = [
   {
     version: 1,

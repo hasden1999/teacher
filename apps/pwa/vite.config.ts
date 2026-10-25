@@ -24,6 +24,10 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
       '@techeeer/core': path.resolve(import.meta.dirname, '../../packages/core/src/index.ts'),
       '@techeeer/content': path.resolve(import.meta.dirname, '../../packages/content/src/index.ts'),
+      '@techeeer/grading-engine': path.resolve(import.meta.dirname, '../../packages/grading-engine/src/index.ts'),
+      '@techeeer/arabic-utils': path.resolve(import.meta.dirname, '../../packages/arabic-utils/src/index.ts'),
+      '@techeeer/math-tools': path.resolve(import.meta.dirname, '../../packages/math-tools/src/index.ts'),
+      '@techeeer/contracts': path.resolve(import.meta.dirname, '../../packages/contracts/src/index.ts'),
     },
   },
   worker: {

@@ -199,4 +199,31 @@ describe('GradebookDbService Unit Test Suite', () => {
       expect(decisionRes.statusChanged).toBe(true);
     });
   });
+
+  describe('Section 6.2 & 9.3: Period Locks Persistence', () => {
+    it('sets and gets period locks correctly in SQLite', async () => {
+      const execSpy = vi.spyOn(dbClient, 'exec').mockResolvedValue({ rowsAffected: 1 });
+      const querySpy = vi.spyOn(dbClient, 'query').mockResolvedValue([{ period_key: 'month_1' }]);
+
+      await service.setPeriodLock('div_1', 'month_1', true);
+      expect(execSpy).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT OR REPLACE INTO period_locks'),
+        expect.arrayContaining(['lock_div_1_month_1', 'div_1', 'month_1'])
+      );
+
+      const locks = await service.getPeriodLocks('div_1');
+      expect(querySpy).toHaveBeenCalledWith(
+        expect.stringContaining('SELECT period_key FROM period_locks WHERE class_id = ?;'),
+        ['div_1']
+      );
+      expect(locks['month_1']).toBe(true);
+
+      // Unlock
+      await service.setPeriodLock('div_1', 'month_1', false);
+      expect(execSpy).toHaveBeenCalledWith(
+        expect.stringContaining('DELETE FROM period_locks WHERE class_id = ? AND period_key = ?;'),
+        ['div_1', 'month_1']
+      );
+    });
+  });
 });

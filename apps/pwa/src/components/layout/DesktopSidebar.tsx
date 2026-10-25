@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type NavTabId = 'gradebook' | 'questions' | 'plans' | 'classes' | 'backups' | 'settings';
+export type NavTabId = 'today' | 'gradebook' | 'questions' | 'plans' | 'classes' | 'backups' | 'settings';
 
 export interface NavItem {
   id: NavTabId;
@@ -10,6 +10,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  { id: 'today', label: 'اليوم', icon: '☀️' },
   { id: 'gradebook', label: 'سجل الدرجات', icon: '📊' },
   { id: 'questions', label: 'بنك الأسئلة والامتحانات', icon: '📝' },
   { id: 'plans', label: 'الخطط الدراسية', icon: '📅' },

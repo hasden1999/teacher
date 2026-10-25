@@ -23,12 +23,24 @@ importers:
 
   apps/pwa:
     dependencies:
+      '@techeeer/arabic-utils':
+        specifier: workspace:*
+        version: link:../../packages/arabic-utils
       '@techeeer/content':
         specifier: workspace:*
         version: link:../../packages/content
+      '@techeeer/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@techeeer/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@techeeer/grading-engine':
+        specifier: workspace:*
+        version: link:../../packages/grading-engine
+      '@techeeer/math-tools':
+        specifier: workspace:*
+        version: link:../../packages/math-tools
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -127,6 +139,8 @@ importers:
         specifier: ^7.4.1
         version: 7.4.1
 
+  packages/arabic-utils: {}
+
   packages/content:
     devDependencies:
       '@types/node':
@@ -142,6 +156,8 @@ importers:
         specifier: ^3.0.5
         version: 3.2.7(@types/node@22.20.4)(jiti@2.7.0)(jsdom@30.1.1)(lightningcss@1.33.0)(terser@5.51.2)
 
+  packages/contracts: {}
+
   packages/core:
     devDependencies:
       '@types/node':
@@ -156,6 +172,10 @@ importers:
       vitest:
         specifier: ^3.0.5
         version: 3.2.7(@types/node@22.20.4)(jiti@2.7.0)(jsdom@30.1.1)(lightningcss@1.33.0)(terser@5.51.2)
+
+  packages/grading-engine: {}
+
+  packages/math-tools: {}
 
   tests/e2e:
     dependencies:

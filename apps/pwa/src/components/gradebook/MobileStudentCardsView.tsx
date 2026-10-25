@@ -14,6 +14,7 @@ import React, { useState, useMemo } from 'react';
 import type { StudentRowItem, GradeColumnDef, GradebookMatrix } from './types.js';
 import { BottomSheetKeypad, type KeypadConfirmResult } from '../common/BottomSheetKeypad.js';
 import { IconMicrophone, IconSearch, IconClose } from '../common/Icons.js';
+import { ExplainGradeModal } from './ExplainGradeModal.js';
 
 export interface MobileStudentCardsViewProps {
   students: StudentRowItem[];
@@ -43,6 +44,7 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
 
   // Keypad Modal State for fast sequential grading
   const [keypadStudentIndex, setKeypadStudentIndex] = useState<number | null>(null);
+  const [explainStudent, setExplainStudent] = useState<{ name: string; id: string } | null>(null);
 
   const activeCol = columns.find((c) => c.key === activeColumnKey) || columns[0];
   const maxScore = activeCol?.maxScore || 20;
@@ -266,9 +268,23 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
                     {std.rollNumber}
                   </div>
                   <div className="truncate">
-                    <h4 className="text-xs font-black text-slate-900 dark:text-slate-100 truncate">
-                      {std.fullName}
-                    </h4>
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="text-xs font-black text-slate-900 dark:text-slate-100 truncate">
+                        {std.fullName}
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExplainStudent({ name: std.fullName, id: std.id });
+                        }}
+                        aria-label={`شرح احتساب درجات ${std.fullName}`}
+                        title="شرح احتساب درجات الطالب (iraq-default-v1)"
+                        className="w-5 h-5 rounded-md bg-teal-50 hover:bg-teal-100 dark:bg-slate-800 text-teal-800 dark:text-teal-300 text-[10px] font-black flex items-center justify-center shrink-0 cursor-pointer"
+                      >
+                        ℹ
+                      </button>
+                    </div>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400">
                       {std.guardianPhone ? `هاتف: ${std.guardianPhone}` : `الرقم التسلسلي: ${std.rollNumber}`}
                     </p>
@@ -363,6 +379,29 @@ export const MobileStudentCardsView: React.FC<MobileStudentCardsViewProps> = ({
           onNext={handleKeypadNext}
           onPrev={handleKeypadPrev}
           onClose={() => setKeypadStudentIndex(null)}
+        />
+      )}
+
+      {/* Grade Calculation Explanation Modal (Section 6.2) */}
+      {explainStudent && (
+        <ExplainGradeModal
+          isOpen={Boolean(explainStudent)}
+          onClose={() => setExplainStudent(null)}
+          studentName={explainStudent.name}
+          nodeId={
+            activeColumnKey === 'annual_effort'
+              ? 'annualSaee'
+              : activeColumnKey === 'semester_1_avg'
+              ? 'term1'
+              : activeColumnKey === 'semester_2_avg'
+              ? 'term2'
+              : activeColumnKey === 'month_1'
+              ? 'm1'
+              : activeColumnKey === 'month_2'
+              ? 'm2'
+              : activeColumnKey
+          }
+          studentGrades={grades[explainStudent.id] || {}}
         />
       )}
     </div>

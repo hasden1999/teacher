@@ -32,6 +32,8 @@ export interface VirtualGradebookTableProps {
   onGradeChange: (studentId: string, columnKey: string, score: number | null, isAbsent: boolean) => void;
   onBatchFillRequest?: (column: GradeColumnDef) => void;
   onStudentSelect?: (student: StudentRowItem) => void;
+  onExplainGrade?: (student: StudentRowItem, column: GradeColumnDef) => void;
+  isPeriodLocked?: boolean;
 }
 
 export const VirtualGradebookTable: React.FC<VirtualGradebookTableProps> = ({
@@ -46,6 +48,8 @@ export const VirtualGradebookTable: React.FC<VirtualGradebookTableProps> = ({
   onGradeChange,
   onBatchFillRequest,
   onStudentSelect,
+  onExplainGrade,
+  isPeriodLocked = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -155,7 +159,10 @@ export const VirtualGradebookTable: React.FC<VirtualGradebookTableProps> = ({
   // Handle cell click
   const handleCellClick = useCallback(
     (student: StudentRowItem, studentIndex: number, column: GradeColumnDef) => {
-      if (!column.isEditable) return;
+      if (!column.isEditable || isPeriodLocked) {
+        onExplainGrade?.(student, column);
+        return;
+      }
 
       setActiveCell({
         studentId: student.id,
@@ -168,7 +175,7 @@ export const VirtualGradebookTable: React.FC<VirtualGradebookTableProps> = ({
       setIsKeypadOpen(true);
       scrollToStudentIndex(studentIndex);
     },
-    [scrollToStudentIndex]
+    [scrollToStudentIndex, onExplainGrade, isPeriodLocked]
   );
 
   // Advance to next/prev student
@@ -357,8 +364,16 @@ export const VirtualGradebookTable: React.FC<VirtualGradebookTableProps> = ({
                 style={{ width: `${colWidth}px`, minWidth: `${colWidth}px`, maxWidth: `${colWidth}px`, height: `${rowHeight}px` }}
               >
                 <div className="flex-1 flex flex-col items-center justify-center">
-                  <span className="truncate w-full" title={col.label}>
+                  <span className="truncate w-full flex items-center justify-center gap-1" title={col.label}>
                     {col.shortLabel || col.label}
+                    {col.isComputed && (
+                      <span
+                        className="text-[10px] text-teal-600 dark:text-teal-400 font-bold cursor-pointer"
+                        title="حساب آلي حسب محرك الدرجات العراقي (انقر لتفاصيل المعادلة)"
+                      >
+                        ℹ
+                      </span>
+                    )}
                   </span>
                   <span className="text-[10px] text-slate-400 font-normal">/{col.maxScore}</span>
                 </div>

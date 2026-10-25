@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { OfflineBadge, DbSyncBadge, DbSyncStatus } from '../common/StatusBadges.js';
 import { IconBadgeCheck, IconHourglass } from '../common/Icons.js';
+import { triggerAppInstall } from '../common/InstallGate.js';
+import { isStandaloneMode } from '../../utils/pwaDetect.js';
 
 import type { AssignedClass } from '../../services/authService.js';
 
@@ -32,6 +34,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onOpenProfile,
 }) => {
   const safeName = typeof teacherName === 'string' && teacherName.trim() ? teacherName.trim() : 'الأستاذ';
+  const [isStandalone, setIsStandalone] = useState<boolean>(() => isStandaloneMode());
+
+  useEffect(() => {
+    setIsStandalone(isStandaloneMode());
+  }, []);
 
   return (
     <header
@@ -56,6 +63,20 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
       {/* Status Badges, Trial Pill & Profile */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+        {/* Mobile Install App Button — Visible when not running in standalone mode */}
+        {!isStandalone && (
+          <button
+            type="button"
+            onClick={triggerAppInstall}
+            aria-label="تثبيت التطبيق على الهاتف"
+            title="تثبيت التطبيق على شاشة الهاتف الرئيسية"
+            className="min-h-[36px] px-2.5 py-1 rounded-xl text-[11px] sm:text-xs font-black bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-xs hover:from-teal-500 hover:to-emerald-500 active:scale-95 transition flex items-center gap-1 cursor-pointer animate-in fade-in"
+          >
+            <span aria-hidden="true">📲</span>
+            <span className="hidden xs:inline">تثبيت التطبيق</span>
+          </button>
+        )}
+
         {/* Trial or Activation Badge - Accessible Touch Target */}
         {onOpenActivation && (
           <button
